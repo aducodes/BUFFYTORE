@@ -10,11 +10,11 @@ const NewsletterBox = () => {
 
   return (
     <div className='text-center'>
-      <p className='text-2xl font-medium text-gray-800'>Order now at 10% off</p>
-      <p className='text-gray-400 mt-3'>
+      <p className='text-2xl font-medium text-green-600'>Order now at 10% off</p>
+      <p className='text-white mt-3'>
         Grab your favorites while they last! Enjoy an exclusive 10% discount on your purchase — limited-time offer. Don’t miss the deal, shop now and save!
       </p>
-      <button onClick={handleRedirect} className='bg-black border-white-1 text-white text-xs px-10 py-4 my-5 hover:text-black hover:border-1 hover:bg-white hover:transition duration-300'>ORDER NOW</button>
+      <button onClick={handleRedirect} className='bg-green-700 border-white text-white text-xs px-10 py-4 my-5 hover:text-black hover:border-1 hover:bg-green-100 hover:transition duration-300'>ORDER NOW</button>
     </div>
   );
 };
