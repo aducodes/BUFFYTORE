@@ -58,22 +58,25 @@ const Product = () => {
             <img src={assets.star_icon} alt='' className='w-3.5' />
             <img src={assets.star_icon} alt='' className='w-3.5' />
             <img src={assets.star_icon} alt='' className='w-3.5' />
-            <p className='pl-2'>(122)</p>
+            <p className='pl-2 text-white'>(122)</p>
           </div>
-          <p className='mt-5 text-3xl font-medium'>
+          <p className='mt-5 text-3xl font-medium text-white'>
             {currency}
             {productData.price}
           </p>
-          <p className='mt-5 text-gray-500 md:w-4/5'>{productData.description}</p>
+          <p className='mt-5 text-gray-500 md:w-4/5 text-white'>{productData.description}</p>
 
           <div className='flex flex-col gap-4 my-8'>
-            <p>Select Size</p>
+            <p className='text-white'>Select Size</p>
             <div className='flex gap-2'>
               {productData.sizes.map((item, index) => (
                 <button
-                  onClick={() => setSize(item)}
-                  className={`border py-2 px-4 bg-gray-100 ${item === size ? 'border-orange-500' : ''}`}
                   key={index}
+                  onClick={() => setSize(size === item ? null : item)}
+                  className={`border py-2 px-4 ${item === size
+                      ? "bg-green-500 border-white"
+                      : "bg-green-100"
+                    }`}
                 >
                   {item}
                 </button>
@@ -90,7 +93,7 @@ const Product = () => {
               addToCart(productData._id, size);
               navigate('/cart');
             }}
-            className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700'
+            className='bg-green-600 text-white px-8 py-3 text-sm active:bg-green-700 hover:text-black hover:border-1 hover:bg-green-100 hover:transition duration-300'
           >
             ADD TO CART
           </button>
