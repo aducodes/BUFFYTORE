@@ -144,22 +144,22 @@ const PlaceOrder = () => {
           <Title text1={'DELIVERY'} text2={'INFORMATION'} />
         </div>
         <div className='flex gap-3'>
-          <input required onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='First name' />
-          <input required onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Last name' />
+          <input required onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-white rounded py-1.5 px-3.5 w-full text-white' type="text" placeholder='First name' />
+          <input required onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-white rounded py-1.5 px-3.5 w-full text-white' type="text" placeholder='Last name' />
         </div>
-        <input required onChange={onChangeHandler} name='email' value={formData.email} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="email" placeholder='Email address' />
-        <input required onChange={onChangeHandler} name='street' value={formData.street} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Street' />
+        <input required onChange={onChangeHandler} name='email' value={formData.email} className='border border-white rounded py-1.5 px-3.5 w-full text-white' type="email" placeholder='Email address' />
+        <input required onChange={onChangeHandler} name='street' value={formData.street} className='border border-white rounded py-1.5 px-3.5 w-full text-white' type="text" placeholder='Street' />
         <div className='flex gap-3'>
-          <select required onChange={onChangeHandler} name='district' value={formData.district} className='border border-gray-300 rounded py-1.3 px-2.5 w-full text-gray-500'>
+          <select required onChange={onChangeHandler} name='district' value={formData.district} className='border border-white rounded py-1.3 px-2.5 w-full text-white'>
             <option value="">Select District</option>
             {keralaDistricts.map((district) => (
               <option key={district} value={district}>{district}</option>
             ))}
           </select>
-          <input readOnly value="Kerala" className='border border-gray-300 rounded py-1.5 px-3.5 w-full bg-gray-100 cursor-not-allowed text-gray-500' />
+          <input readOnly value="Kerala" className='border border-white rounded py-1.5 px-3.5 w-full bg-gray-100 cursor-not-allowed text-black' />
         </div>
-        <input required onChange={onChangeHandler} name='pincode' value={formData.pincode} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Pincode' />
-        <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Phone' />
+        <input required onChange={onChangeHandler} name='pincode' value={formData.pincode} className='border border-white rounded py-1.5 px-3.5 w-full text-white' type="number" placeholder='Pincode' />
+        <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-white rounded py-1.5 px-3.5 w-full text-white ' type="number" placeholder='Phone' />
       </div>
 
       {/* Right: Cart total, coupon, QR code */}
