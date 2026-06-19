@@ -92,7 +92,7 @@ const Cart = () => {
             <button
               disabled={cartData.length === 0}
               onClick={handleCheckout}
-              className={`bg-black text-white text-sm my-8 px-8 py-3 active:bg-gray-700 transition-opacity ${
+              className={`bg-green-700 text-white text-sm my-8 px-8 py-3 active:bg-gray-700 transition-opacity hover:text-black hover:border-1 hover:bg-green-100 hover:transition duration-300 ${
                 cartData.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
