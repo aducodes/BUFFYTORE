@@ -1,6 +1,7 @@
 import express from 'express';
 import {
-    placeOrderGooglePay,
+    createRazorpayOrder,
+    placeOrderRazorpay,
     allOrders,
     userOrders,
     updateStatus
@@ -16,7 +17,8 @@ orderRouter.post('/list', adminAuth, allOrders);
 orderRouter.post('/status', adminAuth, updateStatus);
 
 // User routes
-orderRouter.post('/', authUser, placeOrderGooglePay);       // Place order via Google Pay
-orderRouter.post('/userorders', authUser, userOrders);      // Get user orders
+orderRouter.post('/razorpay', authUser, createRazorpayOrder);
+orderRouter.post('/', authUser, placeOrderRazorpay);
+orderRouter.post('/userorders', authUser, userOrders);
 
 export default orderRouter;

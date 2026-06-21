@@ -16,18 +16,18 @@ const Footer = () => {
         <div>
             <p className='text-xl font-medium mb-5 text-green-600'>COMPANY</p>
             <ul className='flex flex-col gap-1 text-white'>
-                <li>Home</li>
-                <li>About us</li>
-                <li>Delivery</li>
-                <li>Privacy policy</li>
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About us</a></li>
+                <li><a href="/delivery">Delivery</a></li>
+                <li><a href="/privacy-policy">Privacy policy</a></li>
             </ul>
         </div>
 
         <div>
             <p className='text-xl font-medium mb-5 text-green-600'>GET IN TOUCH</p>
             <ul className='flex flex-col gap-1 text-white'>
-                <li>+91 9539318194</li>
-                <li>belachoofficial@gmail.com</li>
+                <li>+91 7592097220</li>
+                <li>cybersalu@gmail.com</li>
             </ul>
         </div>
 
@@ -35,7 +35,7 @@ const Footer = () => {
       </div>
 
       <div>
-        <hr />
+        <hr className='border-white' />
         <p className='py-5 text-sm text-center text-white'>Copyright 2026@ <a href="https://buffytore.in/">buffytore.in</a> - All Right Reserved, Crafted by Adnan from Webzlore.</p>
       </div>
 
