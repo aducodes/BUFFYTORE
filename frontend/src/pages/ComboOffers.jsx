@@ -1,15 +1,17 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { useNavigate } from 'react-router-dom';
-import Title from '../components/Title';
 
-const COMBO_OPTIONS = [
+// ─── Default combos (fallback if admin hasn't set any) ───────────────────────
+const DEFAULT_COMBOS = [
   {
     id: 'combo_2jersey',
-    label: '2 Jerseys Combo',
-    emoji: '🎽🎽',
-    description: 'Pick any 2 jerseys and get them together',
+    label: '2 Jerseys',
+    emoji: '🎽',
+    count: 2,
+    description: 'Any 2 jerseys of your choice',
     discount: 10,
+    badge: 'Popular',
     slots: [
       { label: 'First Jersey', category: 'Jersey' },
       { label: 'Second Jersey', category: 'Jersey' },
@@ -17,35 +19,26 @@ const COMBO_OPTIONS = [
   },
   {
     id: 'combo_3jersey',
-    label: '3 Jerseys Combo',
-    emoji: '🎽🎽🎽',
+    label: '3 Jerseys',
+    emoji: '🎽',
+    count: 3,
     description: 'Pick any 3 jerseys',
     discount: 15,
+    badge: 'Best Value',
     slots: [
       { label: 'First Jersey', category: 'Jersey' },
       { label: 'Second Jersey', category: 'Jersey' },
       { label: 'Third Jersey', category: 'Jersey' },
-    ],
-  },
-  {
-    id: 'combo_4jersey',
-    label: '4 Jerseys Combo',
-    emoji: '🎽✕4',
-    description: 'Pick any 4 jerseys — best value',
-    discount: 18,
-    slots: [
-      { label: 'First Jersey', category: 'Jersey' },
-      { label: 'Second Jersey', category: 'Jersey' },
-      { label: 'Third Jersey', category: 'Jersey' },
-      { label: 'Fourth Jersey', category: 'Jersey' },
     ],
   },
   {
     id: 'combo_5jersey',
-    label: '5 Jerseys Combo',
-    emoji: '🎽✕5',
-    description: 'Pick any 5 jerseys — team pack',
+    label: '5 Jerseys',
+    emoji: '🎽',
+    count: 5,
+    description: 'Team pack — all 5 jerseys',
     discount: 20,
+    badge: 'Team Deal',
     slots: [
       { label: 'First Jersey', category: 'Jersey' },
       { label: 'Second Jersey', category: 'Jersey' },
@@ -56,10 +49,12 @@ const COMBO_OPTIONS = [
   },
   {
     id: 'combo_jersey_tracks',
-    label: 'Jersey + Tracks Combo',
-    emoji: '🎽👖',
-    description: 'Select one jersey and one pair of tracks',
+    label: 'Jersey + Tracks',
+    emoji: '🎽',
+    count: 2,
+    description: 'One jersey + one pair of tracks',
     discount: 12,
+    badge: null,
     slots: [
       { label: 'Select Jersey', category: 'Jersey' },
       { label: 'Select Tracks', category: 'Tracks' },
@@ -67,51 +62,76 @@ const COMBO_OPTIONS = [
   },
   {
     id: 'combo_2jersey_tracks',
-    label: '2 Jerseys + Tracks Combo',
-    emoji: '🎽🎽👖',
+    label: '2 Jerseys + Tracks',
+    emoji: '🎽',
+    count: 3,
     description: 'Two jerseys with matching tracks',
     discount: 17,
+    badge: null,
     slots: [
       { label: 'First Jersey', category: 'Jersey' },
       { label: 'Second Jersey', category: 'Jersey' },
       { label: 'Select Tracks', category: 'Tracks' },
     ],
   },
-  {
-    id: 'combo_jersey_2tracks',
-    label: 'Jersey + 2 Tracks Combo',
-    emoji: '🎽👖👖',
-    description: 'One jersey with two pairs of tracks',
-    discount: 14,
-    slots: [
-      { label: 'Select Jersey', category: 'Jersey' },
-      { label: 'First Tracks', category: 'Tracks' },
-      { label: 'Second Tracks', category: 'Tracks' },
-    ],
-  },
 ];
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
-const ComboOffers = () => {
-  const { products, token, backendUrl, delivery_fee, currency } = useContext(ShopContext);
-  const navigate = useNavigate();
+// ─── Mini combo card for homepage strip ──────────────────────────────────────
+const ComboCard = ({ combo, onSelect }) => (
+  <div
+    onClick={() => onSelect(combo)}
+    className="relative flex-shrink-0 w-56 sm:w-64 cursor-pointer group"
+  >
+    {/* Glow border */}
+    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-  const [selectedCombo, setSelectedCombo] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0); // which slot we're picking
-  const [selections, setSelections] = useState([]); // [{product, size}]
-  const [address, setAddress] = useState({
-    firstName: '', lastName: '', email: '',
-    street: '', city: '', state: '', pincode: '', phone: '',
-  });
-  const [stage, setStage] = useState('select-combo'); // 'select-combo' | 'select-items' | 'address' | 'payment'
-  const [isProcessing, setIsProcessing] = useState(false);
+    <div className="relative border border-green-900 group-hover:border-green-500 rounded-2xl p-5 h-full transition-all duration-300 bg-[#0a1a0a]">
+      {/* Badge */}
+      {combo.badge && (
+        <span className="absolute -top-2.5 left-4 bg-green-500 text-black text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+          {combo.badge}
+        </span>
+      )}
+
+      {/* Jersey count visual */}
+      <div className="flex gap-1 mb-4">
+        {Array.from({ length: Math.min(combo.count, 5) }).map((_, i) => (
+          <div
+            key={i}
+            className="w-7 h-9 rounded-md border border-green-700 bg-green-900/40 flex items-center justify-center text-sm"
+            style={{ transform: `rotate(${(i - (combo.count - 1) / 2) * 4}deg)` }}
+          >
+            {combo.emoji}
+          </div>
+        ))}
+      </div>
+
+      <h3 className="text-white font-bold text-base mb-1 group-hover:text-green-400 transition-colors">
+        {combo.label}
+      </h3>
+      <p className="text-gray-500 text-xs mb-4 leading-relaxed">{combo.description}</p>
+
+      <div className="flex items-center justify-between mt-auto">
+        <div className="flex items-center gap-1.5">
+          <span className="text-2xl font-black text-green-400">{combo.discount}%</span>
+          <span className="text-gray-500 text-xs leading-tight">OFF<br />combo</span>
+        </div>
+        <div className="w-8 h-8 rounded-full border border-green-700 group-hover:bg-green-600 group-hover:border-green-600 flex items-center justify-center transition-all">
+          <span className="text-green-400 group-hover:text-white text-sm">→</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Modal overlay for item-picking flow ─────────────────────────────────────
+const ComboModal = ({ combo, products, currency, delivery_fee, onClose, onComplete }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [selections, setSelections] = useState([]);
   const [selectedSize, setSelectedSize] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    if (!token) navigate('/login');
-  }, [token]);
 
   const filteredProducts = (category) => {
     const catLower = category.toLowerCase();
@@ -120,464 +140,333 @@ const ComboOffers = () => {
         p.category?.toLowerCase().includes(catLower) ||
         p.subCategory?.toLowerCase().includes(catLower) ||
         p.name?.toLowerCase().includes(catLower);
-      const matchSearch = searchQuery === '' ||
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch =
+        searchQuery === '' || p.name?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCat && matchSearch;
     });
   };
 
-  const startCombo = (combo) => {
-    setSelectedCombo(combo);
-    setSelections([]);
-    setCurrentStep(0);
-    setSelectedSize('');
-    setSearchQuery('');
-    setStage('select-items');
-  };
+  const handleSelect = (product) => {
+    if (!selectedSize) return alert('Please select a size first');
+    const updated = [...selections];
+    updated[currentStep] = { product, size: selectedSize };
+    setSelections(updated);
 
-  const handleSelectProduct = (product) => {
-    if (!selectedSize) {
-      alert('Please select a size first');
-      return;
-    }
-    const newSelections = [...selections];
-    newSelections[currentStep] = { product, size: selectedSize };
-    setSelections(newSelections);
-
-    if (currentStep + 1 < selectedCombo.slots.length) {
+    if (currentStep + 1 < combo.slots.length) {
       setCurrentStep(currentStep + 1);
       setSelectedSize('');
       setSearchQuery('');
     } else {
-      setStage('address');
+      onComplete(combo, updated);
     }
   };
 
-  const goBackStep = () => {
+  const goBack = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-      setSelectedSize('');
-      setSearchQuery('');
       const prev = [...selections];
       prev.splice(currentStep, 1);
       setSelections(prev);
+      setCurrentStep(currentStep - 1);
+      setSelectedSize('');
+      setSearchQuery('');
     } else {
-      setStage('select-combo');
-      setSelectedCombo(null);
+      onClose();
     }
   };
 
-  const totalAmount = () => {
-    const subtotal = selections.reduce((sum, sel) => sum + (sel?.product?.price || 0), 0);
-    const disc = (subtotal * (selectedCombo?.discount || 0)) / 100;
-    return (subtotal - disc + delivery_fee).toFixed(2);
-  };
-
-  const subtotalAmount = () =>
-    selections.reduce((sum, sel) => sum + (sel?.product?.price || 0), 0).toFixed(2);
-
-  const loadRazorpayScript = () =>
-    new Promise((resolve) => {
-      if (document.getElementById('razorpay-script')) { resolve(true); return; }
-      const script = document.createElement('script');
-      script.id = 'razorpay-script';
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-
-  const handlePayment = async (e) => {
-    e.preventDefault();
-    if (address.phone.length !== 10) { alert('Enter valid 10-digit phone'); return; }
-    if (address.pincode.length !== 6) { alert('Enter valid 6-digit pincode'); return; }
-
-    setIsProcessing(true);
-    const loaded = await loadRazorpayScript();
-    if (!loaded) { alert('Failed to load payment gateway'); setIsProcessing(false); return; }
-
-    const amount = parseFloat(totalAmount());
-
-    try {
-      const res = await fetch(`${backendUrl}/api/order/razorpay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount }),
-      });
-      const data = await res.json();
-      if (!data.success) { alert('Failed to create payment'); setIsProcessing(false); return; }
-
-      const orderItems = selections.map((sel) => ({
-        ...structuredClone(sel.product),
-        size: sel.size,
-        quantity: 1,
-      }));
-
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: data.order.amount,
-        currency: 'INR',
-        name: 'Belacho',
-        description: selectedCombo.label,
-        order_id: data.order.id,
-        handler: async (response) => {
-          const verifyRes = await fetch(`${backendUrl}/api/order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              items: orderItems,
-              address,
-              amount,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              orderType: 'combo',
-              comboDetails: {
-                id: selectedCombo.id,
-                label: selectedCombo.label,
-                discount: selectedCombo.discount,
-              },
-            }),
-          });
-          const vd = await verifyRes.json();
-          if (vd.success) navigate('/order-success');
-          else alert('Payment done but order save failed. Contact support.');
-        },
-        prefill: {
-          name: `${address.firstName} ${address.lastName}`,
-          email: address.email,
-          contact: address.phone,
-        },
-        theme: { color: '#006400' },
-        modal: { ondismiss: () => setIsProcessing(false) },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      console.error(err);
-      alert('Something went wrong');
-      setIsProcessing(false);
-    }
-  };
-
-  const indianStates = [
-    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
-    "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
-    "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
-    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
-    "Uttar Pradesh","Uttarakhand","West Bengal","Delhi","Jammu & Kashmir",
-    "Ladakh","Chandigarh","Puducherry","Andaman & Nicobar Islands",
-    "Dadra & Nagar Haveli and Daman & Diu","Lakshadweep"
-  ];
+  const subtotal = selections.reduce((s, sel) => s + (sel?.product?.price || 0), 0);
+  const discount = (subtotal * combo.discount) / 100;
 
   return (
-    <div className='border-t border-white pt-10 min-h-[80vh]'>
-      {/* Header */}
-      <div className='mb-8'>
-        <Title text1={'COMBO'} text2={'OFFERS'} />
-      <p className='text-white text-sm mt-1'>Save more by bundling your favourite items together</p>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
-      {/* STAGE: Select Combo */}
-      {stage === 'select-combo' && (
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5'>
-          {COMBO_OPTIONS.map((combo) => (
-            <div
-              key={combo.id}
-              onClick={() => startCombo(combo)}
-              className='border border-green-700 rounded-xl p-5 cursor-pointer hover:border-green-400 hover:bg-green-950 transition-all group'
-            >
-              <div className='text-4xl mb-3'>{combo.emoji}</div>
-              <h3 className='text-white font-bold text-lg group-hover:text-green-400 transition'>{combo.label}</h3>
-              <p className='text-gray-400 text-sm mt-1 mb-3'>{combo.description}</p>
-              <div className='flex items-center justify-between'>
-                <span className='bg-green-800 text-green-300 text-xs px-3 py-1 rounded-full font-semibold'>
-                  {combo.discount}% OFF
+      <div className="relative z-10 bg-[#0d1f0d] border border-green-900 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-green-900">
+          <div>
+            <p className="text-green-400 text-xs font-semibold uppercase tracking-widest">Building combo</p>
+            <h2 className="text-white font-bold text-lg">{combo.label}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-2xl leading-none">×</button>
+        </div>
+
+        {/* Progress steps */}
+        <div className="flex gap-0 px-5 pt-4 pb-2 overflow-x-auto">
+          {combo.slots.map((slot, idx) => (
+            <div key={idx} className="flex items-center flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                  idx < currentStep
+                    ? 'bg-green-500 border-green-500 text-black'
+                    : idx === currentStep
+                    ? 'border-green-400 text-green-400'
+                    : 'border-gray-700 text-gray-600'
+                }`}>
+                  {idx < currentStep ? '✓' : idx + 1}
+                </div>
+                <span className={`text-[10px] mt-1 whitespace-nowrap ${idx === currentStep ? 'text-green-400' : 'text-gray-600'}`}>
+                  {slot.label}
                 </span>
-                <span className='text-green-400 text-sm'>{combo.slots.length} items →</span>
               </div>
+              {idx < combo.slots.length - 1 && (
+                <div className={`h-px w-6 mx-1 mb-4 ${idx < currentStep ? 'bg-green-500' : 'bg-gray-800'}`} />
+              )}
             </div>
           ))}
         </div>
-      )}
 
-      {/* STAGE: Select Items Step by Step */}
-      {stage === 'select-items' && selectedCombo && (
-        <div>
-          {/* Progress */}
-          <div className='flex items-center gap-2 mb-8 overflow-x-auto pb-2'>
-            {selectedCombo.slots.map((slot, idx) => (
-              <React.Fragment key={idx}>
-                <div className={`flex items-center gap-2 flex-shrink-0 ${idx <= currentStep ? 'text-green-400' : 'text-gray-500'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
-                    idx < currentStep ? 'bg-green-600 border-green-600 text-white' :
-                    idx === currentStep ? 'border-green-400 text-green-400' :
-                    'border-gray-600 text-gray-600'
-                  }`}>
-                    {idx < currentStep ? '✓' : idx + 1}
+        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
+          {/* Left: Product picker */}
+          <div className="flex-1 flex flex-col p-5 overflow-hidden">
+            <p className="text-gray-400 text-sm mb-3">
+              Step {currentStep + 1}: <span className="text-white">{combo.slots[currentStep].label}</span>
+              {' '}— select size then tap product
+            </p>
+
+            {/* Sizes */}
+            <div className="flex gap-2 flex-wrap mb-3">
+              {SIZE_OPTIONS.map((sz) => (
+                <button
+                  key={sz}
+                  onClick={() => setSelectedSize(sz)}
+                  className={`px-3 py-1 rounded-lg border text-xs font-semibold transition ${
+                    selectedSize === sz
+                      ? 'bg-green-500 border-green-500 text-black'
+                      : 'border-gray-700 text-gray-400 hover:border-green-600'
+                  }`}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
+            <input
+              type="text"
+              placeholder={`Search ${combo.slots[currentStep].category}…`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border border-gray-700 rounded-lg py-2 px-3 w-full bg-transparent text-white text-sm mb-3 focus:border-green-500 outline-none"
+            />
+
+            {/* Products */}
+            <div className="grid grid-cols-3 gap-3 overflow-y-auto flex-1 pr-1">
+              {filteredProducts(combo.slots[currentStep].category).map((p) => (
+                <div
+                  key={p._id}
+                  onClick={() => handleSelect(p)}
+                  className={`border rounded-xl overflow-hidden cursor-pointer transition-all hover:border-green-400 hover:scale-[1.02] ${
+                    !selectedSize ? 'opacity-40 pointer-events-none' : 'border-gray-800'
+                  }`}
+                >
+                  <img src={p.image?.[0]} alt={p.name} className="w-full aspect-square object-cover" />
+                  <div className="p-2">
+                    <p className="text-white text-[11px] font-medium line-clamp-1">{p.name}</p>
+                    <p className="text-green-400 text-xs font-bold">{currency}{p.price}</p>
                   </div>
-                  <span className='text-xs whitespace-nowrap'>{slot.label}</span>
                 </div>
-                {idx < selectedCombo.slots.length - 1 && (
-                  <div className={`h-0.5 w-8 flex-shrink-0 ${idx < currentStep ? 'bg-green-600' : 'bg-gray-700'}`} />
-                )}
-              </React.Fragment>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <div className='flex flex-col lg:flex-row gap-8'>
-            {/* Product Picker */}
-            <div className='flex-1'>
-              <h3 className='text-white text-lg font-semibold mb-1'>
-                Step {currentStep + 1}: {selectedCombo.slots[currentStep].label}
-              </h3>
-              <p className='text-gray-400 text-sm mb-4'>
-                Select a size, then click a product
-              </p>
+          {/* Right: Summary panel */}
+          <div className="sm:w-60 border-t sm:border-t-0 sm:border-l border-green-900 p-4 flex flex-col gap-3 bg-[#081408]">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Your picks</p>
 
-              {/* Size Selection */}
-              <div className='flex gap-2 flex-wrap mb-4'>
-                {SIZE_OPTIONS.map((sz) => (
-                  <button
-                    key={sz}
-                    type='button'
-                    onClick={() => setSelectedSize(sz)}
-                    className={`px-4 py-1.5 rounded border text-sm font-medium transition ${
-                      selectedSize === sz
-                        ? 'bg-green-600 border-green-600 text-white'
-                        : 'border-gray-600 text-gray-300 hover:border-green-500'
-                    }`}
-                  >
-                    {sz}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search */}
-              <input
-                type='text'
-                placeholder={`Search ${selectedCombo.slots[currentStep].category}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className='border border-gray-600 rounded py-2 px-3 w-full bg-transparent text-white mb-4 text-sm'
-              />
-
-              {/* Product Grid */}
-              <div className='grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[420px] overflow-y-auto pr-1'>
-                {filteredProducts(selectedCombo.slots[currentStep].category).length === 0 ? (
-                  <div className='col-span-3 text-center text-gray-400 py-10'>
-                    No products found for "{selectedCombo.slots[currentStep].category}"
-                    <p className='text-xs mt-2'>All products are shown when category doesn't match</p>
-                  </div>
-                ) : (
-                  filteredProducts(selectedCombo.slots[currentStep].category).map((p) => (
-                    <div
-                      key={p._id}
-                      onClick={() => handleSelectProduct(p)}
-                      className={`border rounded-lg overflow-hidden cursor-pointer transition hover:border-green-400 hover:scale-[1.02] ${
-                        !selectedSize ? 'opacity-50 cursor-not-allowed' : 'border-gray-700'
-                      }`}
-                    >
-                      <img src={p.image?.[0]} alt={p.name}
-                        className='w-full aspect-square object-cover' />
-                      <div className='p-2'>
-                        <p className='text-white text-xs font-medium line-clamp-2'>{p.name}</p>
-                        <p className='text-green-400 text-sm font-bold mt-0.5'>{currency}{p.price}</p>
-                      </div>
+            {combo.slots.map((slot, idx) => (
+              <div
+                key={idx}
+                className={`rounded-xl border p-2.5 flex gap-2 items-center transition ${
+                  idx === currentStep
+                    ? 'border-green-500'
+                    : selections[idx]
+                    ? 'border-green-900'
+                    : 'border-gray-800'
+                }`}
+              >
+                {selections[idx] ? (
+                  <>
+                    <img
+                      src={selections[idx].product.image?.[0]}
+                      alt=""
+                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                    />
+                    <div className="overflow-hidden">
+                      <p className="text-white text-[11px] font-medium truncate">{selections[idx].product.name}</p>
+                      <p className="text-green-400 text-[10px]">Size {selections[idx].size}</p>
+                      <p className="text-gray-500 text-[10px]">{currency}{selections[idx].product.price}</p>
                     </div>
-                  ))
+                  </>
+                ) : (
+                  <>
+                    <div className={`w-10 h-10 rounded-lg border-2 border-dashed flex items-center justify-center text-base flex-shrink-0 ${
+                      idx === currentStep ? 'border-green-500' : 'border-gray-800'
+                    }`}>
+                      {idx === currentStep ? '→' : '○'}
+                    </div>
+                    <p className={`text-[11px] ${idx === currentStep ? 'text-green-400' : 'text-gray-700'}`}>
+                      {slot.label}
+                    </p>
+                  </>
                 )}
               </div>
-            </div>
+            ))}
 
-            {/* Current Selections Summary */}
-            <div className='lg:w-72'>
-              <h4 className='text-white font-semibold mb-3'>Your Selections</h4>
-              <div className='flex flex-col gap-3'>
-                {selectedCombo.slots.map((slot, idx) => (
-                  <div key={idx}
-                    className={`border rounded-lg p-3 flex gap-3 items-center ${
-                      idx === currentStep ? 'border-green-500 bg-green-950' :
-                      idx < currentStep && selections[idx] ? 'border-green-800 bg-green-950 bg-opacity-50' :
-                      'border-gray-800'
-                    }`}>
-                    {selections[idx] ? (
-                      <>
-                        <img src={selections[idx].product.image?.[0]} alt=''
-                          className='w-12 h-12 object-cover rounded' />
-                        <div>
-                          <p className='text-white text-xs font-medium line-clamp-1'>{selections[idx].product.name}</p>
-                          <p className='text-green-400 text-xs'>Size: {selections[idx].size}</p>
-                          <p className='text-gray-400 text-xs'>{currency}{selections[idx].product.price}</p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className={`w-12 h-12 rounded border-2 border-dashed flex items-center justify-center text-xl
-                          ${idx === currentStep ? 'border-green-500' : 'border-gray-700'}`}>
-                          {idx === currentStep ? '→' : '○'}
-                        </div>
-                        <p className={`text-xs ${idx === currentStep ? 'text-green-400' : 'text-gray-600'}`}>
-                          {slot.label}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {selections.length > 0 && (
-                <div className='mt-4 p-3 border border-green-800 rounded-lg'>
-                  <p className='text-gray-400 text-xs'>Subtotal: {currency}{subtotalAmount()}</p>
-                  <p className='text-green-400 text-xs'>Discount ({selectedCombo.discount}%): -{currency}
-                    {((parseFloat(subtotalAmount()) * selectedCombo.discount) / 100).toFixed(2)}
-                  </p>
-                  <p className='text-gray-400 text-xs'>Delivery: {currency}{delivery_fee}</p>
-                  <p className='text-white font-bold mt-1'>Total: {currency}{totalAmount()}</p>
+            {subtotal > 0 && (
+              <div className="mt-auto border border-green-900 rounded-xl p-3 text-xs space-y-1">
+                <div className="flex justify-between text-gray-400">
+                  <span>Subtotal</span><span>{currency}{subtotal.toFixed(2)}</span>
                 </div>
-              )}
+                <div className="flex justify-between text-green-400">
+                  <span>−{combo.discount}%</span>
+                  <span>−{currency}{discount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>Delivery</span><span>{currency}{delivery_fee}</span>
+                </div>
+                <div className="flex justify-between text-white font-bold pt-1 border-t border-green-900">
+                  <span>Total</span>
+                  <span>{currency}{(subtotal - discount + delivery_fee).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
 
-              <button
-                type='button'
-                onClick={goBackStep}
-                className='mt-4 w-full border border-gray-600 text-gray-400 py-2 rounded text-sm hover:border-white hover:text-white transition'
-              >
-                ← Back
-              </button>
-            </div>
+            <button
+              onClick={goBack}
+              className="w-full border border-gray-700 text-gray-400 py-2 rounded-xl text-xs hover:border-white hover:text-white transition"
+            >
+              ← Back
+            </button>
           </div>
         </div>
-      )}
-
-      {/* STAGE: Address */}
-      {stage === 'address' && (
-        <form onSubmit={(e) => { e.preventDefault(); setStage('payment'); }}
-          className='max-w-xl mx-auto'>
-          <h3 className='text-white text-xl font-semibold mb-6'>Delivery Address</h3>
-
-          {/* Order Summary */}
-          <div className='bg-green-950 border border-green-800 rounded-lg p-4 mb-6'>
-            <p className='text-green-400 font-semibold text-sm mb-2'>{selectedCombo.label}</p>
-            {selections.map((sel, idx) => (
-              <div key={idx} className='flex items-center gap-3 py-1'>
-                <img src={sel.product.image?.[0]} alt='' className='w-10 h-10 rounded object-cover' />
-                <span className='text-white text-sm'>{sel.product.name}</span>
-                <span className='text-gray-400 text-xs'>({sel.size})</span>
-              </div>
-            ))}
-            <div className='border-t border-green-800 mt-3 pt-3 flex justify-between'>
-              <span className='text-gray-400 text-sm'>Total after {selectedCombo.discount}% off</span>
-              <span className='text-white font-bold'>{currency}{totalAmount()}</span>
-            </div>
-          </div>
-
-          <div className='flex flex-col gap-4'>
-            <div className='flex gap-3'>
-              <input required placeholder='First Name' value={address.firstName}
-                onChange={(e) => setAddress({ ...address, firstName: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-              <input required placeholder='Last Name' value={address.lastName}
-                onChange={(e) => setAddress({ ...address, lastName: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            </div>
-            <input required type='email' placeholder='Email' value={address.email}
-              onChange={(e) => setAddress({ ...address, email: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            <input required placeholder='Street Address' value={address.street}
-              onChange={(e) => setAddress({ ...address, street: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            <div className='flex gap-3'>
-              <input required placeholder='District' value={address.city}
-                onChange={(e) => setAddress({ ...address, city: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-              <select required value={address.state}
-                onChange={(e) => setAddress({ ...address, state: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm'>
-                <option value=''>State</option>
-                {indianStates.map((s) => <option key={s} value={s} className='text-black'>{s}</option>)}
-              </select>
-            </div>
-            <input required placeholder='Pincode (6 digits)' value={address.pincode}
-              onChange={(e) => e.target.value.length <= 6 && setAddress({ ...address, pincode: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            <input required placeholder='Phone (10 digits)' value={address.phone}
-              onChange={(e) => e.target.value.length <= 10 && setAddress({ ...address, phone: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-          </div>
-
-          <div className='flex gap-3 mt-6'>
-            <button type='button' onClick={() => setStage('select-items')}
-              className='flex-1 border border-gray-600 text-gray-400 py-3 rounded hover:border-white hover:text-white transition text-sm'>
-              ← Back
-            </button>
-            <button type='submit'
-              className='flex-1 bg-green-700 text-white py-3 rounded hover:bg-green-600 transition text-sm font-semibold'>
-              Continue to Payment →
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* STAGE: Payment */}
-      {stage === 'payment' && (
-        <form onSubmit={handlePayment} className='max-w-xl mx-auto'>
-          <h3 className='text-white text-xl font-semibold mb-6'>Payment</h3>
-
-          {/* Final Summary */}
-          <div className='bg-green-950 border border-green-800 rounded-lg p-5 mb-6'>
-            <p className='text-green-400 font-bold mb-3'>{selectedCombo.label} — {selectedCombo.discount}% discount applied</p>
-            {selections.map((sel, idx) => (
-              <div key={idx} className='flex justify-between text-sm text-gray-300 py-1'>
-                <span>{sel.product.name} (Size: {sel.size})</span>
-                <span>{currency}{sel.product.price}</span>
-              </div>
-            ))}
-            <div className='border-t border-green-800 mt-3 pt-3 space-y-1 text-sm'>
-              <div className='flex justify-between text-gray-400'>
-                <span>Subtotal</span><span>{currency}{subtotalAmount()}</span>
-              </div>
-              <div className='flex justify-between text-green-400'>
-                <span>Combo Discount ({selectedCombo.discount}%)</span>
-                <span>-{currency}{((parseFloat(subtotalAmount()) * selectedCombo.discount) / 100).toFixed(2)}</span>
-              </div>
-              <div className='flex justify-between text-gray-400'>
-                <span>Delivery</span><span>{currency}{delivery_fee}</span>
-              </div>
-              <div className='flex justify-between text-white font-bold text-base pt-1'>
-                <span>Total</span><span>{currency}{totalAmount()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Razorpay Payment */}
-          <div className='border border-green-600 rounded-lg p-4 flex items-center gap-3 mb-6'>
-            <div className='w-5 h-5 rounded-full bg-green-500 flex-shrink-0'></div>
-            <div>
-              <p className='text-white font-medium text-sm'>Pay via Razorpay</p>
-              <p className='text-gray-400 text-xs'>Cards · UPI · Netbanking · Wallets</p>
-            </div>
-            <div className='ml-auto'>
-              <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-                <rect width="48" height="48" rx="8" fill="#072654"/>
-                <path d="M14 34L22 14H30L24 26H34L20 34H14Z" fill="#3395FF"/>
-              </svg>
-            </div>
-          </div>
-
-          <div className='flex gap-3'>
-            <button type='button' onClick={() => setStage('address')}
-              className='flex-1 border border-gray-600 text-gray-400 py-3 rounded hover:border-white hover:text-white transition text-sm'>
-              ← Back
-            </button>
-            <button type='submit' disabled={isProcessing}
-              className='flex-1 bg-green-700 text-white py-3 rounded hover:bg-green-600 transition text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed'>
-              {isProcessing ? 'PROCESSING...' : `PAY ${currency}${totalAmount()}`}
-            </button>
-          </div>
-        </form>
-      )}
+      </div>
     </div>
+  );
+};
+
+// ─── Main ComboOffers (drop into Home.jsx) ───────────────────────────────────
+const ComboOffers = () => {
+  const { products, token, delivery_fee, currency } = useContext(ShopContext);
+  const navigate = useNavigate();
+  const scrollRef = useRef(null);
+  const [activeCombo, setActiveCombo] = useState(null);
+  const [combos, setCombos] = useState(DEFAULT_COMBOS);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  // TODO: fetch combos from your backend if you've saved them via admin
+  // useEffect(() => {
+  //   fetch(`${backendUrl}/api/combos`).then(r => r.json()).then(d => setCombos(d.combos || DEFAULT_COMBOS));
+  // }, []);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  const scroll = (dir) => {
+    scrollRef.current?.scrollBy({ left: dir * 280, behavior: 'smooth' });
+  };
+
+  const handleSelectCombo = (combo) => {
+    if (!token) { navigate('/login'); return; }
+    setActiveCombo(combo);
+  };
+
+  const handleComplete = (combo, selections) => {
+    // Pass selections to the full ComboOffers page or directly to checkout
+    // Option A: store in sessionStorage and navigate to the combo page
+    sessionStorage.setItem('pendingCombo', JSON.stringify({ combo, selections }));
+    navigate('/combo-offers');
+    setActiveCombo(null);
+  };
+
+  return (
+    <section className="py-14 px-4 sm:px-6">
+      {/* Section header */}
+      <div className="flex items-end justify-between mb-8">
+        <div>
+          <p className="text-green-500 text-xs font-bold uppercase tracking-[0.2em] mb-1">Limited bundles</p>
+          <h2 className="text-white text-2xl sm:text-3xl font-black leading-tight">
+            COMBO <span className="text-green-400">OFFERS</span>
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">Bundle up · Save more · Play better</p>
+        </div>
+
+        {/* Scroll arrows — desktop */}
+        <div className="hidden sm:flex gap-2">
+          <button
+            onClick={() => scroll(-1)}
+            disabled={!canScrollLeft}
+            className="w-9 h-9 rounded-full border border-green-900 flex items-center justify-center text-green-400 disabled:opacity-30 hover:bg-green-900 transition"
+          >
+            ←
+          </button>
+          <button
+            onClick={() => scroll(1)}
+            disabled={!canScrollRight}
+            className="w-9 h-9 rounded-full border border-green-900 flex items-center justify-center text-green-400 disabled:opacity-30 hover:bg-green-900 transition"
+          >
+            →
+          </button>
+        </div>
+      </div>
+
+      {/* Horizontal scrollable strip */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex gap-4 overflow-x-auto pb-3 scroll-smooth"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {combos.map((combo) => (
+          <ComboCard key={combo.id} combo={combo} onSelect={handleSelectCombo} />
+        ))}
+
+        {/* "See all" card */}
+        <div
+          onClick={() => navigate('/combo-offers')}
+          className="flex-shrink-0 w-40 border border-dashed border-green-900 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-green-500 transition-all group"
+        >
+          <div className="w-10 h-10 rounded-full border border-green-700 group-hover:bg-green-600 group-hover:border-green-600 flex items-center justify-center transition-all text-green-400 group-hover:text-black font-bold text-lg">
+            +
+          </div>
+          <span className="text-gray-500 group-hover:text-white text-xs text-center leading-tight transition">
+            See all<br />combos
+          </span>
+        </div>
+      </div>
+
+      {/* Saving strip */}
+      <div className="mt-6 flex flex-wrap gap-3">
+        {[
+          { label: 'Up to 20% off', sub: 'on jersey bundles' },
+          { label: 'Free delivery', sub: 'on all combo orders' },
+          { label: 'Mix & match', sub: 'any style, any size' },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-2 bg-green-950 border border-green-900 rounded-xl px-4 py-2">
+            <span className="text-green-400 text-sm font-bold">{item.label}</span>
+            <span className="text-gray-600 text-xs">{item.sub}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {activeCombo && (
+        <ComboModal
+          combo={activeCombo}
+          products={products}
+          currency={currency}
+          delivery_fee={delivery_fee}
+          onClose={() => setActiveCombo(null)}
+          onComplete={handleComplete}
+        />
+      )}
+    </section>
   );
 };
 
