@@ -4,7 +4,7 @@ import LatestCollection from '../components/LatestCollection'
 import BestSeller from '../components/BestSeller'
 import OurPolicy from '../components/OurPolicy'
 import NewsletterBox from '../components/NewsletterBox'
-import ComboOffers from '../pages/ComboOffers'   // ← new
+import ComboSection from '../components/ComboSection'
 
 const Home = () => {
   return (
@@ -12,7 +12,7 @@ const Home = () => {
       <Hero />
       <LatestCollection />
       <BestSeller />
-      <ComboOffers />   {/* ← combo strip sits here, between BestSeller and Policy */}
+      <ComboSection />
       <OurPolicy />
       <NewsletterBox />
     </div>

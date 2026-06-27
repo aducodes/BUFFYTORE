@@ -133,7 +133,7 @@ const PlaceOrder = () => {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: data.order.amount,
         currency: 'INR',
-        name: 'Belacho',
+        name: 'Buffy',
         description: 'Order Payment',
         order_id: data.order.id,
         handler: async (response) => {

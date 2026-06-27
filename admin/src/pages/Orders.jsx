@@ -99,7 +99,7 @@ const Orders = ({ token }) => {
                 <div className='mb-2'>
                   {order.orderType === 'combo' && order.comboDetails && (
                     <p className='text-purple-700 font-semibold text-sm mb-1'>
-                      🎽 {order.comboDetails.label} — {order.comboDetails.discount}% off
+                     {order.comboDetails.label} — {order.comboDetails.discount}% off
                     </p>
                   )}
                   {order.items.map((item, i) => (

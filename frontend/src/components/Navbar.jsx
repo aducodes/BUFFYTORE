@@ -72,7 +72,7 @@ const Navbar = () => {
           </div>
           <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border' to='/'>HOME</NavLink>
           <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border' to='/collection'>COLLECTION</NavLink>
-          <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border text-green-300 font-semibold' to='/combo-offers'>COMBO OFFERS 🎽</NavLink>
+          <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border text-green-300 font-semibold' to='/combo-offers'>COMBO OFFERS</NavLink>
           <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border' to='/about'>ABOUT</NavLink>
           <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border' to='/contact'>CONTACT</NavLink>
           {token && <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border' to='/orders'>MY ORDERS</NavLink>}

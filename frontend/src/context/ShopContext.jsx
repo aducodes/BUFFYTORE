@@ -7,7 +7,7 @@ export const ShopContext = createContext();
 
 const ShopContextProvider = (props) => {
   const currency = "₹";
-  const delivery_fee = 10;
+  const delivery_fee = 0;
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const navigate = useNavigate();
 
@@ -32,7 +32,7 @@ const ShopContextProvider = (props) => {
 
   const applyCoupon = (code) => {
     const trimmed = code.trim().toUpperCase();
-    if (trimmed === "BELACHO10") {
+    if (trimmed === "BUFFY10") {
       setCoupon(trimmed);
       setDiscount(0.10);
       toast.success("Coupon applied successfully!");
