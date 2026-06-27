@@ -24,7 +24,8 @@ const Collection = () => {
 
   const applyFilter = () => {
 
-    let productsCopy = products.slice();
+    // Filter out products with stock = 0 (out of stock)
+    let productsCopy = products.filter(item => item.stock === null || item.stock === undefined || item.stock > 0);
 
     if (showSearch && search) {
       productsCopy = productsCopy.filter(item => item.name.toLowerCase().includes(search.toLowerCase()))

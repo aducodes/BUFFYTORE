@@ -2,6 +2,7 @@
 
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+import productModel from "../models/productModel.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
@@ -71,6 +72,22 @@ const placeOrderRazorpay = async (req, res) => {
     });
 
     await newOrder.save();
+
+    // ── Deduct stock for each item, hide product if stock hits 0 ──
+    for (const item of items) {
+      if (!item._id) continue;
+      const product = await productModel.findById(item._id);
+      if (!product || product.stock === null || product.stock === undefined) continue;
+      const qty = item.quantity || 1;
+      const newStock = product.stock - qty;
+      if (newStock <= 0) {
+        // Remove product from collection (set stock to 0, mark hidden)
+        await productModel.findByIdAndUpdate(item._id, { stock: 0 });
+      } else {
+        await productModel.findByIdAndUpdate(item._id, { stock: newStock });
+      }
+    }
+
     // Clear cart only for regular orders
     if (!orderType || orderType === "regular") {
       await userModel.findByIdAndUpdate(userId, { cartData: {} });

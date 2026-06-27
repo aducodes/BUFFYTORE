@@ -4,7 +4,7 @@ import productModel from "../models/productModel.js"
 // function for add product
 const addProduct = async (req, res) => {
     try {
-        const { name, description, price, subCategory, sizes, bestseller } = req.body
+        const { name, description, price, subCategory, sizes, bestseller, stock } = req.body
 
         const image1 = req.files.image1 && req.files.image1[0]
         const image2 = req.files.image2 && req.files.image2[0]
@@ -28,7 +28,8 @@ const addProduct = async (req, res) => {
             bestseller: bestseller === "true" ? true : false,
             sizes: JSON.parse(sizes),
             image: imagesUrl,
-            date: Date.now()
+            date: Date.now(),
+            stock: stock !== undefined && stock !== '' ? Number(stock) : null
         }
 
         console.log(productData);
@@ -47,7 +48,8 @@ const addProduct = async (req, res) => {
 // function for list product
 const listProducts = async (req, res) => {
     try {
-        const products = await productModel.find({});
+        // Exclude products where stock is explicitly 0 (out of stock)
+        const products = await productModel.find({ $or: [{ stock: null }, { stock: { $gt: 0 } }] });
         res.json({ success: true, products }) // ✅ fixed here
 
     } catch (error) {
