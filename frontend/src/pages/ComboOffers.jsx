@@ -31,17 +31,10 @@ const COURIER_OPTIONS = [
   },
   {
     id: 'speed',
-    name: 'Speed',
+    name: 'Speed and Safe',
     tagline: 'Fast delivery guaranteed',
     days: '2–3 days',
     icon: '⚡',
-  },
-  {
-    id: 'safe',
-    name: 'Safe',
-    tagline: 'Handled with extra care',
-    days: '4–6 days',
-    icon: '🛡️',
   },
 ];
 

@@ -19,29 +19,22 @@ const COURIER_OPTIONS = [
     id: 'india_post',
     name: 'India Post',
     tagline: 'Government postal service',
-    days: '5–8 days',
+    days: '2–3 days',
     icon: '📮',
   },
   {
     id: 'dtdc',
     name: 'DTDC',
     tagline: 'Reliable express delivery',
-    days: '3–5 days',
+    days: '2–3 days',
     icon: '📦',
   },
   {
     id: 'speed',
-    name: 'Speed',
+    name: 'Speed and Safe',
     tagline: 'Fast delivery guaranteed',
     days: '2–3 days',
     icon: '⚡',
-  },
-  {
-    id: 'safe',
-    name: 'Safe',
-    tagline: 'Handled with extra care',
-    days: '4–6 days',
-    icon: '🛡️',
   },
 ];
 
