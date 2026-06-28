@@ -2,144 +2,99 @@ import React, { useContext, useEffect, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { useNavigate } from 'react-router-dom';
 import Title from '../components/Title';
+import CartTotal from '../components/CartTotal';
 
-// Category map — keeps Jersey/Tracks matching Topwear/Bottomwear
-const CATEGORY_MAP = {
-  jersey:    ['topwear', 'jersey'],
-  tracks:    ['bottomwear', 'tracks', 'track'],
-  't-shirt': ['topwear', 't-shirt', 'tshirt'],
-  shorts:    ['bottomwear', 'shorts'],
-  jacket:    ['topwear', 'jacket'],
-};
+const indianStates = [
+  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
+  "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
+  "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
+  "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
+  "Uttar Pradesh","Uttarakhand","West Bengal","Delhi","Jammu & Kashmir",
+  "Ladakh","Chandigarh","Puducherry","Andaman & Nicobar Islands",
+  "Dadra & Nagar Haveli and Daman & Diu","Lakshadweep"
+];
 
-const matchesCategory = (product, slotCategory) => {
-  const cat = slotCategory.toLowerCase();
-  const aliases = CATEGORY_MAP[cat] || [cat];
-  return aliases.some(
-    (alias) =>
-      product.category?.toLowerCase().includes(alias) ||
-      product.subCategory?.toLowerCase().includes(alias) ||
-      product.name?.toLowerCase().includes(alias)
-  );
-};
+const COURIER_OPTIONS = [
+  {
+    id: 'india_post',
+    name: 'India Post',
+    tagline: 'Government postal service',
+    days: '5–8 days',
+    icon: '📮',
+  },
+  {
+    id: 'dtdc',
+    name: 'DTDC',
+    tagline: 'Reliable express delivery',
+    days: '3–5 days',
+    icon: '📦',
+  },
+  {
+    id: 'speed',
+    name: 'Speed',
+    tagline: 'Fast delivery guaranteed',
+    days: '2–3 days',
+    icon: '⚡',
+  },
+  {
+    id: 'safe',
+    name: 'Safe',
+    tagline: 'Handled with extra care',
+    days: '4–6 days',
+    icon: '🛡️',
+  },
+];
 
-const ComboOffers = () => {
-  const { products, token, backendUrl, delivery_fee, currency } = useContext(ShopContext);
-  const navigate = useNavigate();
+const PlaceOrder = () => {
+  const [couponInput, setCouponInput] = useState('');
+  const [invalidCoupon, setInvalidCoupon] = useState(false);
+  const [localDiscount, setLocalDiscount] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedCourier, setSelectedCourier] = useState('');
 
-  const [combos, setCombos] = useState([]);
-  const [loadingCombos, setLoadingCombos] = useState(true);
-
-  const [selectedCombo, setSelectedCombo] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [selections, setSelections] = useState([]);
-  const [address, setAddress] = useState({
+  const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '',
     street: '', city: '', state: '', pincode: '', phone: '',
   });
-  const [stage, setStage] = useState('select-combo');
-  const [isProcessing, setIsProcessing] = useState(false);
-  // FIX: two-step — pendingProduct is tapped but not yet confirmed
-  const [pendingProduct, setPendingProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const navigate = useNavigate();
+
+  const {
+    backendUrl, token, cartItems, setCartItems,
+    getCartAmount, delivery_fee, products, applyCoupon, coupon,
+  } = useContext(ShopContext);
+
+  const isKerala = formData.state === 'Kerala';
 
   useEffect(() => {
     if (!token) navigate('/login');
-  }, [token]);
+  }, [token, navigate]);
 
+  // Clear courier selection if state changes away from Kerala
   useEffect(() => {
-    fetch(`${backendUrl}/api/combos`)
-      .then(r => r.json())
-      .then(d => { if (d.combos?.length) setCombos(d.combos); })
-      .catch(() => {})
-      .finally(() => setLoadingCombos(false));
-  }, [backendUrl]);
+    if (!isKerala) setSelectedCourier('');
+  }, [formData.state]);
 
-  useEffect(() => {
-    const pending = sessionStorage.getItem('pendingCombo');
-    if (pending) {
-      try {
-        const { combo, selections: sel } = JSON.parse(pending);
-        sessionStorage.removeItem('pendingCombo');
-        setSelectedCombo(combo);
-        setSelections(sel);
-        setStage('address');
-      } catch {}
-    }
-  }, []);
-
-  const filteredProducts = (slotCategory) =>
-    products.filter((p) => {
-      const matchCat = matchesCategory(p, slotCategory);
-      const matchSearch =
-        searchQuery === '' || p.name?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchSearch;
-    });
-
-  const startCombo = (combo) => {
-    setSelectedCombo(combo);
-    setSelections([]);
-    setCurrentStep(0);
-    setPendingProduct(null);
-    setSelectedSize('');
-    setSearchQuery('');
-    setStage('select-items');
+  const onChangeHandler = (e) => {
+    const { name, value } = e.target;
+    if (name === 'phone' && value.length > 10) return;
+    if (name === 'pincode' && value.length > 6) return;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Step 1: tap product → show its sizes
-  const handleTapProduct = (product) => {
-    setPendingProduct(product);
-    setSelectedSize('');
-  };
-
-  // Step 2: confirm size → advance step
-  const handleConfirmSize = () => {
-    if (!pendingProduct || !selectedSize) return;
-    const newSelections = [...selections];
-    newSelections[currentStep] = { product: pendingProduct, size: selectedSize };
-    setSelections(newSelections);
-    if (currentStep + 1 < selectedCombo.slots.length) {
-      setCurrentStep(currentStep + 1);
-      setPendingProduct(null);
-      setSelectedSize('');
-      setSearchQuery('');
+  const handleApplyCoupon = () => {
+    const result = applyCoupon(couponInput.trim());
+    if (result.success) {
+      setInvalidCoupon(false);
+      setLocalDiscount(10);
     } else {
-      setStage('address');
+      setInvalidCoupon(true);
+      setLocalDiscount(0);
     }
   };
 
-  const goBackStep = () => {
-    if (pendingProduct) {
-      // dismiss size picker, stay on same product-picker step
-      setPendingProduct(null);
-      setSelectedSize('');
-      return;
-    }
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-      setSelectedSize('');
-      setSearchQuery('');
-      const prev = [...selections];
-      prev.splice(currentStep, 1);
-      setSelections(prev);
-    } else {
-      setStage('select-combo');
-      setSelectedCombo(null);
-    }
-  };
-
-  const subtotalAmount = () =>
-    selections.reduce((sum, sel) => sum + (sel?.product?.price || 0), 0).toFixed(2);
-
-  const totalAmount = () => {
-    const subtotal = selections.reduce((sum, sel) => sum + (sel?.product?.price || 0), 0);
-    const disc = (subtotal * (selectedCombo?.discount || 0)) / 100;
-    return (subtotal - disc + delivery_fee).toFixed(2);
-  };
-
-  const loadRazorpayScript = () =>
-    new Promise((resolve) => {
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
       if (document.getElementById('razorpay-script')) { resolve(true); return; }
       const script = document.createElement('script');
       script.id = 'razorpay-script';
@@ -148,405 +103,278 @@ const ComboOffers = () => {
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
     });
+  };
 
-  const handlePayment = async (e) => {
+  const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    if (address.phone.length !== 10) { alert('Enter valid 10-digit phone'); return; }
-    if (address.pincode.length !== 6) { alert('Enter valid 6-digit pincode'); return; }
+
+    const hasItems = Object.values(cartItems).some((sizes) =>
+      Object.values(sizes).some((qty) => qty > 0)
+    );
+    if (!hasItems) {
+      alert('Your cart is empty. Please add items before placing an order.');
+      return;
+    }
+    if (formData.phone.length !== 10) {
+      alert('Please enter a valid 10-digit phone number');
+      return;
+    }
+    if (formData.pincode.length !== 6) {
+      alert('Please enter a valid 6-digit pincode');
+      return;
+    }
+    // Require courier selection for Kerala customers
+    if (isKerala && !selectedCourier) {
+      alert('Please select a courier option for delivery within Kerala');
+      return;
+    }
+
     setIsProcessing(true);
+
     const loaded = await loadRazorpayScript();
-    if (!loaded) { alert('Failed to load payment gateway'); setIsProcessing(false); return; }
-    const amount = parseFloat(totalAmount());
+    if (!loaded) {
+      alert('Failed to load payment gateway. Please try again.');
+      setIsProcessing(false);
+      return;
+    }
+
+    const cartAmount = getCartAmount();
+    const discountAmount = (cartAmount * localDiscount) / 100;
+    const finalAmount = parseFloat((cartAmount - discountAmount + delivery_fee).toFixed(2));
+
     try {
       const res = await fetch(`${backendUrl}/api/order/razorpay`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount: finalAmount }),
       });
       const data = await res.json();
-      if (!data.success) { alert('Failed to create payment'); setIsProcessing(false); return; }
-      const orderItems = selections.map((sel) => ({
-        ...structuredClone(sel.product),
-        size: sel.size,
-        quantity: 1,
-      }));
+      if (!data.success) {
+        alert('Failed to create payment order. Please try again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const orderItems = [];
+      for (const productId in cartItems) {
+        for (const size in cartItems[productId]) {
+          const qty = cartItems[productId][size];
+          if (qty > 0) {
+            const product = products.find((p) => p._id === productId);
+            if (product) orderItems.push({ ...structuredClone(product), size, quantity: qty });
+          }
+        }
+      }
+
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: data.order.amount,
         currency: 'INR',
         name: 'Buffy',
-        description: selectedCombo.label,
+        description: 'Order Payment',
         order_id: data.order.id,
         handler: async (response) => {
-          const verifyRes = await fetch(`${backendUrl}/api/order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              items: orderItems,
-              address,
-              amount,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              orderType: 'combo',
-              comboDetails: {
-                id: selectedCombo._id || selectedCombo.id,
-                label: selectedCombo.label,
-                discount: selectedCombo.discount,
+          try {
+            const verifyRes = await fetch(`${backendUrl}/api/order`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
               },
-            }),
-          });
-          const vd = await verifyRes.json();
-          if (vd.success) navigate('/order-success');
-          else alert('Payment done but order save failed. Contact support.');
+              body: JSON.stringify({
+                items: orderItems,
+                address: formData,
+                amount: finalAmount,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderType: 'regular',
+                // Send courier only if Kerala
+                courier: isKerala ? selectedCourier : null,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              setCartItems({});
+              navigate('/order-success');
+            } else {
+              alert('Payment verified but order placement failed. Contact support.');
+            }
+          } catch (err) {
+            console.error('Order save error:', err);
+          }
         },
         prefill: {
-          name: `${address.firstName} ${address.lastName}`,
-          email: address.email,
-          contact: address.phone,
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          contact: formData.phone,
         },
         theme: { color: '#006400' },
         modal: { ondismiss: () => setIsProcessing(false) },
       };
+
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (err) {
-      console.error(err);
-      alert('Something went wrong');
+      console.error('Payment error:', err);
+      alert('Something went wrong. Please try again.');
       setIsProcessing(false);
     }
   };
 
-  const indianStates = [
-    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
-    "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
-    "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
-    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
-    "Uttar Pradesh","Uttarakhand","West Bengal","Delhi","Jammu & Kashmir",
-    "Ladakh","Chandigarh","Puducherry","Andaman & Nicobar Islands",
-    "Dadra & Nagar Haveli and Daman & Diu","Lakshadweep"
-  ];
-
   return (
-    <div className='border-t border-white pt-10 min-h-[80vh]'>
-      <div className='mb-8'>
-        <Title text1={'COMBO'} text2={'OFFERS'} />
-        <p className='text-white text-sm mt-1'>Save more by bundling your favourite items together</p>
-      </div>
+    <form
+      onSubmit={handlePlaceOrder}
+      className='flex flex-col sm:flex-row justify-between gap-4 pt-5 sm:pt-14 min-h-[80vh] border-t'
+    >
+      {/* ── Delivery Information ── */}
+      <div className='flex flex-col gap-4 w-full sm:max-w-[480px]'>
+        <div className='text-xl sm:text-2xl my-3'>
+          <Title text1={'DELIVERY'} text2={'INFORMATION'} />
+        </div>
 
-      {/* ── Select combo ── */}
-      {stage === 'select-combo' && (
-        <>
-          {loadingCombos ? (
-            <div className='text-gray-400 text-sm text-center py-16'>Loading combos…</div>
-          ) : combos.length === 0 ? (
-            <div className='text-gray-500 text-sm text-center py-16'>No combo offers available right now.</div>
-          ) : (
-            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5'>
-              {combos.map((combo) => (
-                <div key={combo._id || combo.id} onClick={() => startCombo(combo)}
-                  className='border border-green-700 rounded-xl p-5 cursor-pointer hover:border-green-400 hover:bg-green-950 transition-all group'>
-                  <div className='relative mb-4' style={{ height: '52px' }}>
-                    {Array.from({ length: Math.min(combo.count, 5) }).map((_, i) => {
-                      const total = Math.min(combo.count, 5);
-                      return (
-                        <div key={i}
-                          className='absolute rounded-md border border-green-700 overflow-hidden bg-green-900/40'
-                          style={{
-                            left: `${i * 22}px`, top: 0,
-                            transform: `rotate(${(i - (total - 1) / 2) * 5}deg)`,
-                            zIndex: i, height: '52px', width: '40px',
-                          }}>
-                          {combo.image ? (
-                            <img src={combo.image} alt={combo.label} className='w-full h-full object-cover' />
-                          ) : (
-                            <div className='w-full h-full bg-gradient-to-br from-green-800 to-green-950 flex items-center justify-center'>
-                              <span className='text-green-500 text-sm font-bold'>{combo.label.charAt(0)}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {combo.badge && (
-                    <span className='inline-block bg-green-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider mb-2'>
-                      {combo.badge}
+        <div className='flex gap-3'>
+          <input required name='firstName' value={formData.firstName} onChange={onChangeHandler}
+            className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='text' placeholder='First Name' />
+          <input required name='lastName' value={formData.lastName} onChange={onChangeHandler}
+            className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='text' placeholder='Last Name' />
+        </div>
+
+        <input required name='email' value={formData.email} onChange={onChangeHandler}
+          className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='email' placeholder='Email Address' />
+
+        <input required name='street' value={formData.street} onChange={onChangeHandler}
+          className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='text' placeholder='Street Address, City' />
+
+        <div className='flex gap-3'>
+          <input required name='city' value={formData.city} onChange={onChangeHandler}
+            className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='text' placeholder='District' />
+          <select required name='state' value={formData.state} onChange={onChangeHandler}
+            className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent'>
+            <option value=''>Select State</option>
+            {indianStates.map((state) => (
+              <option key={state} value={state} className='text-black'>{state}</option>
+            ))}
+          </select>
+          <input readOnly value='India'
+            className='border border-white rounded py-1.5 px-3.5 w-full bg-green-900 cursor-not-allowed text-white' />
+        </div>
+
+        <input required name='pincode' value={formData.pincode} onChange={onChangeHandler}
+          className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='text' placeholder='Pincode' />
+
+        <input required name='phone' value={formData.phone} onChange={onChangeHandler}
+          className='border border-white rounded py-1.5 px-3.5 w-full text-white bg-transparent' type='tel' placeholder='Phone Number' />
+
+        {/* ── Courier Selection — only shown for Kerala ── */}
+        {isKerala && (
+          <div className='mt-2'>
+            <p className='text-white text-sm font-semibold mb-3 flex items-center gap-2'>
+              <span>🚚</span> Select Courier Partner
+              <span className='text-green-400 text-xs font-normal'>(required for Kerala)</span>
+            </p>
+            <div className='grid grid-cols-2 gap-3'>
+              {COURIER_OPTIONS.map((courier) => (
+                <div
+                  key={courier.id}
+                  onClick={() => setSelectedCourier(courier.id)}
+                  className={`cursor-pointer border rounded-xl p-3 transition-all duration-200 ${
+                    selectedCourier === courier.id
+                      ? 'border-green-400 bg-green-950 shadow-lg shadow-green-900/30'
+                      : 'border-gray-700 hover:border-green-700 bg-transparent'
+                  }`}
+                >
+                  <div className='flex items-center gap-2 mb-1'>
+                    <span className='text-lg'>{courier.icon}</span>
+                    <span className={`font-semibold text-sm ${selectedCourier === courier.id ? 'text-green-300' : 'text-white'}`}>
+                      {courier.name}
                     </span>
-                  )}
-                  <h3 className='text-white font-bold text-lg group-hover:text-green-400 transition'>{combo.label}</h3>
-                  <p className='text-gray-400 text-sm mt-1 mb-3'>{combo.description}</p>
-                  <div className='flex items-center justify-between'>
-                    {combo.discount > 0 ? (
-                      <span className='bg-green-800 text-green-300 text-xs px-3 py-1 rounded-full font-semibold'>
-                        {combo.discount}% OFF
-                      </span>
-                    ) : <span />}
-                    <span className='text-green-400 text-sm'>{combo.slots?.length} items →</span>
+                    {selectedCourier === courier.id && (
+                      <span className='ml-auto text-green-400 text-xs'>✓</span>
+                    )}
                   </div>
+                  <p className='text-gray-400 text-[11px]'>{courier.tagline}</p>
+                  <p className={`text-[11px] mt-1 font-medium ${selectedCourier === courier.id ? 'text-green-400' : 'text-gray-500'}`}>
+                    {courier.days}
+                  </p>
                 </div>
               ))}
             </div>
-          )}
-        </>
-      )}
-
-      {/* ── Select items ── */}
-      {stage === 'select-items' && selectedCombo && (
-        <div>
-          {/* Progress stepper */}
-          <div className='flex items-center gap-2 mb-8 overflow-x-auto pb-2'>
-            {selectedCombo.slots.map((slot, idx) => (
-              <React.Fragment key={idx}>
-                <div className={`flex items-center gap-2 flex-shrink-0 ${idx <= currentStep ? 'text-green-400' : 'text-gray-500'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
-                    idx < currentStep ? 'bg-green-600 border-green-600 text-white' :
-                    idx === currentStep ? 'border-green-400 text-green-400' :
-                    'border-gray-600 text-gray-600'}`}>
-                    {idx < currentStep ? '✓' : idx + 1}
-                  </div>
-                  <span className='text-xs whitespace-nowrap'>{slot.label}</span>
-                </div>
-                {idx < selectedCombo.slots.length - 1 && (
-                  <div className={`h-0.5 w-8 flex-shrink-0 ${idx < currentStep ? 'bg-green-600' : 'bg-gray-700'}`} />
-                )}
-              </React.Fragment>
-            ))}
           </div>
+        )}
+      </div>
 
-          <div className='flex flex-col lg:flex-row gap-8'>
-            <div className='flex-1'>
-
-              {/* ── Size picker: shown after tapping a product ── */}
-              {pendingProduct ? (
-                <div>
-                  <div className='flex items-center gap-4 mb-5'>
-                    <img
-                      src={pendingProduct.image?.[0]}
-                      alt={pendingProduct.name}
-                      className='w-16 h-16 rounded-xl object-cover border border-green-800'
-                    />
-                    <div>
-                      <p className='text-white font-semibold'>{pendingProduct.name}</p>
-                      <p className='text-green-400 text-sm'>{currency}{pendingProduct.price}</p>
-                    </div>
-                  </div>
-                  <p className='text-gray-400 text-sm mb-3'>Pick a size:</p>
-                  <div className='flex gap-2 flex-wrap mb-6'>
-                    {(pendingProduct.sizes && pendingProduct.sizes.length > 0
-                      ? pendingProduct.sizes
-                      : ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-                    ).map((sz) => (
-                      <button key={sz} type='button' onClick={() => setSelectedSize(sz)}
-                        className={`px-4 py-2 rounded border text-sm font-medium transition ${
-                          selectedSize === sz
-                            ? 'bg-green-600 border-green-600 text-white'
-                            : 'border-gray-600 text-gray-300 hover:border-green-500'}`}>
-                        {sz}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type='button'
-                    onClick={handleConfirmSize}
-                    disabled={!selectedSize}
-                    className='w-full bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition'
-                  >
-                    Confirm — {selectedSize || 'select a size'}
-                  </button>
-                </div>
-              ) : (
-                /* ── Product picker ── */
-                <>
-                  <h3 className='text-white text-lg font-semibold mb-1'>
-                    Step {currentStep + 1}: {selectedCombo.slots[currentStep].label}
-                  </h3>
-                  <p className='text-gray-400 text-sm mb-4'>Tap a product to choose its size</p>
-                  <input type='text'
-                    placeholder={`Search ${selectedCombo.slots[currentStep].category}...`}
-                    value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    className='border border-gray-600 rounded py-2 px-3 w-full bg-transparent text-white mb-4 text-sm' />
-
-                  {filteredProducts(selectedCombo.slots[currentStep].category).length === 0 ? (
-                    <div className='text-center text-gray-400 py-10'>
-                      No products found for "{selectedCombo.slots[currentStep].category}"
-                      <p className='text-xs text-gray-600 mt-1'>Add products with subCategory "Topwear" for jerseys or "Bottomwear" for tracks.</p>
-                    </div>
-                  ) : (
-                    <div className='grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[420px] overflow-y-auto pr-1'>
-                      {filteredProducts(selectedCombo.slots[currentStep].category).map((p) => (
-                        <div key={p._id} onClick={() => handleTapProduct(p)}
-                          className='group border border-gray-700 rounded-lg cursor-pointer transition-all duration-200 hover:border-green-400 hover:scale-[1.03] hover:shadow-lg hover:shadow-green-900/40 bg-[#0a1a0a]'>
-                          <div className='relative w-full overflow-hidden rounded-t-lg' style={{ height: '150px' }}>
-                            <img
-                              src={p.image?.[0]}
-                              alt={p.name}
-                              className='w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105'
-                            />
-                            <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200' />
-                          </div>
-                          <div className='p-2 group-hover:bg-green-950 transition-colors duration-200'>
-                            <p className='text-white text-xs font-medium line-clamp-2 group-hover:text-green-300'>{p.name}</p>
-                            <p className='text-green-400 text-sm font-bold mt-0.5'>{currency}{p.price}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Summary sidebar */}
-            <div className='lg:w-72'>
-              <h4 className='text-white font-semibold mb-3'>Your Selections</h4>
-              <div className='flex flex-col gap-3'>
-                {selectedCombo.slots.map((slot, idx) => (
-                  <div key={idx} className={`border rounded-lg p-3 flex gap-3 items-center ${
-                    idx === currentStep ? 'border-green-500 bg-green-950' :
-                    idx < currentStep && selections[idx] ? 'border-green-800 bg-green-950 bg-opacity-50' : 'border-gray-800'}`}>
-                    {selections[idx] ? (
-                      <>
-                        <img src={selections[idx].product.image?.[0]} alt='' className='w-12 h-12 object-cover rounded' />
-                        <div>
-                          <p className='text-white text-xs font-medium line-clamp-1'>{selections[idx].product.name}</p>
-                          <p className='text-green-400 text-xs'>Size: {selections[idx].size}</p>
-                          <p className='text-gray-400 text-xs'>{currency}{selections[idx].product.price}</p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className={`w-12 h-12 rounded border-2 border-dashed flex items-center justify-center text-xl ${idx === currentStep ? 'border-green-500' : 'border-gray-700'}`}>
-                          {idx === currentStep ? '→' : '○'}
-                        </div>
-                        <p className={`text-xs ${idx === currentStep ? 'text-green-400' : 'text-gray-600'}`}>{slot.label}</p>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {selections.length > 0 && (
-                <div className='mt-4 p-3 border border-green-800 rounded-lg'>
-                  <p className='text-gray-400 text-xs'>Subtotal: {currency}{subtotalAmount()}</p>
-                  {selectedCombo.discount > 0 && (
-                    <p className='text-green-400 text-xs'>
-                      Discount ({selectedCombo.discount}%): -{currency}{((parseFloat(subtotalAmount()) * selectedCombo.discount) / 100).toFixed(2)}
-                    </p>
-                  )}
-                  <p className='text-gray-400 text-xs'>Delivery: {currency}{delivery_fee}</p>
-                  <p className='text-white font-bold mt-1'>Total: {currency}{totalAmount()}</p>
-                </div>
-              )}
-              <button type='button' onClick={goBackStep}
-                className='mt-4 w-full border border-gray-600 text-gray-400 py-2 rounded text-sm hover:border-white hover:text-white transition'>
-                ← Back
-              </button>
-            </div>
-          </div>
+      {/* ── Right Side ── */}
+      <div className='mt-8 w-full sm:max-w-[400px]'>
+        <div className='mt-8 min-w-80'>
+          <CartTotal overrideDiscount={localDiscount} overrideCoupon={coupon} isCouponApplied={localDiscount > 0} />
         </div>
-      )}
 
-      {/* ── Address ── */}
-      {stage === 'address' && (
-        <form onSubmit={(e) => { e.preventDefault(); setStage('payment'); }} className='max-w-xl mx-auto'>
-          <h3 className='text-white text-xl font-semibold mb-6'>Delivery Address</h3>
-          <div className='bg-green-950 border border-green-800 rounded-lg p-4 mb-6'>
-            <p className='text-green-400 font-semibold text-sm mb-2'>{selectedCombo?.label}</p>
-            {selections.map((sel, idx) => (
-              <div key={idx} className='flex items-center gap-3 py-1'>
-                <img src={sel.product.image?.[0]} alt='' className='w-10 h-10 rounded object-cover' />
-                <span className='text-white text-sm'>{sel.product.name}</span>
-                <span className='text-gray-400 text-xs'>({sel.size})</span>
-              </div>
-            ))}
-            <div className='border-t border-green-800 mt-3 pt-3 flex justify-between'>
-              <span className='text-gray-400 text-sm'>
-                {selectedCombo?.discount > 0 ? `Total after ${selectedCombo.discount}% off` : 'Total'}
-              </span>
-              <span className='text-white font-bold'>{currency}{totalAmount()}</span>
+        {/* Coupon */}
+        <div className='mt-6'>
+          {localDiscount === 0 ? (
+            <div className='flex flex-col gap-2'>
+              <input type='text' value={couponInput} onChange={(e) => setCouponInput(e.target.value)}
+                placeholder='Enter Coupon Code'
+                className='border p-2 rounded outline-none text-sm text-white bg-transparent border-white' />
+              <button type='button' onClick={handleApplyCoupon}
+                className='bg-white text-black px-4 py-2 rounded hover:bg-gray-200 text-sm'>
+                Apply Coupon
+              </button>
+              {invalidCoupon && <p className='text-red-400 text-xs'>Invalid coupon code</p>}
             </div>
-          </div>
-          <div className='flex flex-col gap-4'>
-            <div className='flex gap-3'>
-              <input required placeholder='First Name' value={address.firstName} onChange={(e) => setAddress({ ...address, firstName: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-              <input required placeholder='Last Name' value={address.lastName} onChange={(e) => setAddress({ ...address, lastName: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            </div>
-            <input required type='email' placeholder='Email' value={address.email} onChange={(e) => setAddress({ ...address, email: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            <input required placeholder='Street Address' value={address.street} onChange={(e) => setAddress({ ...address, street: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            <div className='flex gap-3'>
-              <input required placeholder='District' value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-              <select required value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })}
-                className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm'>
-                <option value=''>State</option>
-                {indianStates.map((s) => <option key={s} value={s} className='text-black'>{s}</option>)}
-              </select>
-            </div>
-            <input required placeholder='Pincode (6 digits)' value={address.pincode}
-              onChange={(e) => e.target.value.length <= 6 && setAddress({ ...address, pincode: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-            <input required placeholder='Phone (10 digits)' value={address.phone}
-              onChange={(e) => e.target.value.length <= 10 && setAddress({ ...address, phone: e.target.value })}
-              className='border border-white rounded py-2 px-3 w-full text-white bg-transparent text-sm' />
-          </div>
-          <div className='flex gap-3 mt-6'>
-            <button type='button' onClick={() => setStage('select-items')}
-              className='flex-1 border border-gray-600 text-gray-400 py-3 rounded hover:border-white hover:text-white transition text-sm'>← Back</button>
-            <button type='submit'
-              className='flex-1 bg-green-700 text-white py-3 rounded hover:bg-green-600 transition text-sm font-semibold'>Continue to Payment →</button>
-          </div>
-        </form>
-      )}
+          ) : (
+            <p className='text-green-400 text-sm'>Coupon "{coupon}" applied — 10% off!</p>
+          )}
+        </div>
 
-      {/* ── Payment ── */}
-      {stage === 'payment' && (
-        <form onSubmit={handlePayment} className='max-w-xl mx-auto'>
-          <h3 className='text-white text-xl font-semibold mb-6'>Payment</h3>
-          <div className='bg-green-950 border border-green-800 rounded-lg p-5 mb-6'>
-            <p className='text-green-400 font-bold mb-3'>
-              {selectedCombo?.label}
-              {selectedCombo?.discount > 0 && ` — ${selectedCombo.discount}% discount applied`}
-            </p>
-            {selections.map((sel, idx) => (
-              <div key={idx} className='flex justify-between text-sm text-gray-300 py-1'>
-                <span>{sel.product.name} (Size: {sel.size})</span>
-                <span>{currency}{sel.product.price}</span>
+        {/* Selected courier summary (shown on right side too) */}
+        {isKerala && selectedCourier && (() => {
+          const c = COURIER_OPTIONS.find(o => o.id === selectedCourier);
+          return (
+            <div className='mt-6 border border-green-800 rounded-xl p-3 flex items-center gap-3 bg-green-950'>
+              <span className='text-2xl'>{c.icon}</span>
+              <div>
+                <p className='text-green-300 text-sm font-semibold'>{c.name}</p>
+                <p className='text-gray-400 text-xs'>{c.days} · {c.tagline}</p>
               </div>
-            ))}
-            <div className='border-t border-green-800 mt-3 pt-3 space-y-1 text-sm'>
-              <div className='flex justify-between text-gray-400'><span>Subtotal</span><span>{currency}{subtotalAmount()}</span></div>
-              {selectedCombo?.discount > 0 && (
-                <div className='flex justify-between text-green-400'>
-                  <span>Combo Discount ({selectedCombo.discount}%)</span>
-                  <span>-{currency}{((parseFloat(subtotalAmount()) * (selectedCombo.discount || 0)) / 100).toFixed(2)}</span>
-                </div>
-              )}
-              <div className='flex justify-between text-gray-400'><span>Delivery</span><span>{currency}{delivery_fee}</span></div>
-              <div className='flex justify-between text-white font-bold text-base pt-1'><span>Total</span><span>{currency}{totalAmount()}</span></div>
+              <span className='ml-auto text-green-400 text-xs border border-green-700 rounded-full px-2 py-0.5'>Selected</span>
+            </div>
+          );
+        })()}
+
+        {/* Payment Method */}
+        <div className='mt-12'>
+          <Title text1={'PAYMENT'} text2={'METHOD'} />
+
+          <div className='flex items-center gap-3 border border-white p-3 px-4 rounded mt-4 bg-green-950'>
+            <div className='w-4 h-4 border-2 border-green-400 rounded-full bg-green-400'></div>
+            <div className='flex items-center gap-2'>
+              <svg width="22" height="22" viewBox="0 0 48 48" fill="none">
+                <rect width="48" height="48" rx="8" fill="#072654"/>
+                <path d="M14 34L22 14H30L24 26H34L20 34H14Z" fill="#3395FF"/>
+              </svg>
+              <span className='text-white font-medium text-sm'>Razorpay</span>
+              <span className='text-xs text-green-300 ml-1'>(Cards, UPI, Netbanking & more)</span>
             </div>
           </div>
-          <div className='border border-green-600 rounded-lg p-4 flex items-center gap-3 mb-6'>
-            <div className='w-5 h-5 rounded-full bg-green-500 flex-shrink-0'></div>
-            <div>
-              <p className='text-white font-medium text-sm'>Pay via Razorpay</p>
-              <p className='text-gray-400 text-xs'>Cards · UPI · Netbanking · Wallets</p>
-            </div>
-          </div>
-          <div className='flex gap-3'>
-            <button type='button' onClick={() => setStage('address')}
-              className='flex-1 border border-gray-600 text-gray-400 py-3 rounded hover:border-white hover:text-white transition text-sm'>← Back</button>
-            <button type='submit' disabled={isProcessing}
-              className='flex-1 bg-green-700 text-white py-3 rounded hover:bg-green-600 transition text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed'>
-              {isProcessing ? 'PROCESSING...' : `PAY ${currency}${totalAmount()}`}
+
+          <div className='w-full text-center mt-8'>
+            <button
+              type='submit'
+              disabled={isProcessing}
+              className='bg-green-700 text-white px-16 py-3 text-sm hover:bg-green-600 transition duration-300 disabled:opacity-60 disabled:cursor-not-allowed rounded'
+            >
+              {isProcessing ? 'PROCESSING...' : 'PLACE ORDER'}
             </button>
           </div>
-        </form>
-      )}
-    </div>
+        </div>
+      </div>
+    </form>
   );
 };
 
-export default ComboOffers;
+export default PlaceOrder;
