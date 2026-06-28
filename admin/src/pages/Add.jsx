@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { assets } from '../assets/assets/assets';
 import axios from 'axios';
 import { backendUrl } from '../App';
 import { toast } from 'react-toastify';
@@ -27,31 +26,35 @@ const Add = ({ token }) => {
   const fetchProducts = async () => {
     setFetching(true);
     try {
-      const res = await axios.get(`${backendUrl}/api/product/list`, { headers: { token } });
+      // /api/product/adminlist returns ALL products including stock=0
+      // Falls back to /api/product/list if adminlist not yet added
+      const res = await axios.post(
+        backendUrl + '/api/product/remove',
+        { id },
+        { headers: { token } }
+      );
       if (res.data.success) setProducts(res.data.products || []);
-    } catch {}
+    } catch {
+      try {
+        const res = await axios.get(`${backendUrl}/api/product/list`, { headers: { token } });
+        if (res.data.success) setProducts(res.data.products || []);
+      } catch { }
+    }
     finally { setFetching(false); }
   };
 
   useEffect(() => { fetchProducts(); }, []);
 
   const resetForm = () => {
-    setName('');
-    setDescription('');
-    setPrice('');
-    setSubCategory('Topwear');
-    setBestseller(false);
-    setSizes([]);
-    setStock('');
-    setImage1(null);
-    setImage2(null);
-    setImage3(null);
-    setImage4(null);
+    setName(''); setDescription(''); setPrice('');
+    setSubCategory('Topwear'); setBestseller(false);
+    setSizes([]); setStock('');
+    setImage1(null); setImage2(null); setImage3(null); setImage4(null);
     setEditingId(null);
   };
 
   const startEdit = (product) => {
-    setEditingId(product._id || product.id);
+    setEditingId(product._id);
     setName(product.name || '');
     setDescription(product.description || '');
     setPrice(String(product.price || ''));
@@ -59,17 +62,13 @@ const Add = ({ token }) => {
     setBestseller(product.bestseller || false);
     setSizes(product.sizes || []);
     setStock(product.stock !== undefined && product.stock !== null ? String(product.stock) : '');
-    // Clear image slots (existing images shown separately)
     setImage1(null); setImage2(null); setImage3(null); setImage4(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
-
-    if (!editingId && !image1) {
-      return toast.error('Please upload at least one product image.');
-    }
+    if (!editingId && !image1) return toast.error('Please upload at least one product image.');
 
     setLoading(true);
     try {
@@ -81,7 +80,6 @@ const Add = ({ token }) => {
       formData.append('bestseller', bestseller);
       formData.append('sizes', JSON.stringify(sizes));
       if (stock !== '') formData.append('stock', stock);
-
       if (image1) formData.append('image1', image1);
       if (image2) formData.append('image2', image2);
       if (image3) formData.append('image3', image3);
@@ -89,54 +87,54 @@ const Add = ({ token }) => {
 
       let response;
       if (editingId) {
-        response = await axios.put(
-          `${backendUrl}/api/product/${editingId}`,
-          formData,
-          { headers: { token, 'Content-Type': 'multipart/form-data' } }
-        );
+        // send editingId in body so backend can find the product
+        formData.append('id', editingId);
+        response = await axios.post(`${backendUrl}/api/product/update`, formData, { headers: { token } });
       } else {
-        response = await axios.post(
-          `${backendUrl}/api/product/add`,
-          formData,
-          { headers: { token } }
-        );
+        response = await axios.post(`${backendUrl}/api/product/add`, formData, { headers: { token } });
       }
 
       if (response.data.success) {
         toast.success(editingId ? 'Product updated!' : response.data.message);
-        resetForm();
-        fetchProducts();
+        resetForm(); fetchProducts();
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
       console.log(error);
       toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
+  // Uses existing POST /api/product/remove with { id } in body
   const deleteProduct = async (id) => {
     if (!window.confirm('Delete this product?')) return;
     try {
-      const res = await axios.delete(`${backendUrl}/api/product/remove`, {
-        headers: { token },
-        data: { id },
-      });
+      const res = await axios.post(
+        `${backendUrl}/api/product/remove`,
+        { id },
+        { headers: { token } }
+      );
       if (res.data.success) { toast.success('Product deleted'); fetchProducts(); }
       else toast.error(res.data.message);
     } catch { toast.error('Failed to delete'); }
   };
 
+  // Uses new POST /api/product/update with just { id, bestseller }
   const toggleBestseller = async (product) => {
     try {
-      await axios.patch(
-        `${backendUrl}/api/product/${product._id || product.id}`,
-        { bestseller: !product.bestseller },
-        { headers: { token } }
-      );
-      fetchProducts();
+      const formData = new FormData();
+      formData.append('id', product._id);
+      formData.append('name', product.name);
+      formData.append('description', product.description);
+      formData.append('price', product.price);
+      formData.append('subCategory', product.subCategory);
+      formData.append('bestseller', !product.bestseller);
+      formData.append('sizes', JSON.stringify(product.sizes));
+      if (product.stock !== null && product.stock !== undefined) formData.append('stock', product.stock);
+      const res = await axios.post(`${backendUrl}/api/product/update`, formData, { headers: { token } });
+      if (res.data.success) fetchProducts();
+      else toast.error(res.data.message || 'Failed to update');
     } catch { toast.error('Failed to update'); }
   };
 
@@ -163,7 +161,8 @@ const Add = ({ token }) => {
             <label className="text-xs font-semibold text-gray-500 mb-2 block">
               Product Images{' '}
               <span className="font-normal text-gray-400">
-                (up to 4 — first image is the main card image{editingId ? '; leave blank to keep existing' : ''})
+                (up to 4 — first image is the main card image
+                {editingId ? '; leave blank to keep existing images' : ''})
               </span>
             </label>
             <div className="flex gap-3">
@@ -173,9 +172,8 @@ const Add = ({ token }) => {
                 return (
                   <div key={idx} className="flex flex-col items-center gap-1">
                     <label className="cursor-pointer" htmlFor={`image${idx + 1}`}>
-                      <div className={`w-24 h-24 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden transition hover:border-green-400 ${
-                        display ? 'border-green-300' : 'border-gray-300'
-                      }`}>
+                      <div className={`w-24 h-24 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden transition hover:border-green-400 ${display ? 'border-green-300' : 'border-gray-300'
+                        }`}>
                         {display ? (
                           <img src={display} alt={`product img ${idx + 1}`} className="w-full h-full object-cover" />
                         ) : (
@@ -187,21 +185,14 @@ const Add = ({ token }) => {
                           </div>
                         )}
                       </div>
-                      <input
-                        type="file"
-                        id={`image${idx + 1}`}
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => setters[idx](e.target.files[0])}
-                      />
+                      <input type="file" id={`image${idx + 1}`} accept="image/*" className="hidden"
+                        onChange={(e) => setters[idx](e.target.files[0])} />
                     </label>
                     {!display && (
                       <span className="text-[10px] text-gray-400">{idx === 0 && !editingId ? 'Required' : 'Optional'}</span>
                     )}
                     {display && (
-                      <button type="button" onClick={() => setters[idx](null)} className="text-[10px] text-red-400 hover:text-red-600">
-                        Remove
-                      </button>
+                      <button type="button" onClick={() => setters[idx](null)} className="text-[10px] text-red-400 hover:text-red-600">Remove</button>
                     )}
                   </div>
                 );
@@ -212,38 +203,25 @@ const Add = ({ token }) => {
           {/* Name */}
           <div>
             <label className="text-xs font-semibold text-gray-500 mb-1 block">Product Name *</label>
-            <input
-              onChange={(e) => setName(e.target.value)}
-              value={name}
+            <input onChange={(e) => setName(e.target.value)} value={name}
               className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm"
-              type="text"
-              placeholder="e.g. Dri-Fit Jersey"
-              required
-            />
+              type="text" placeholder="e.g. Dri-Fit Jersey" required />
           </div>
 
           {/* Description */}
           <div>
             <label className="text-xs font-semibold text-gray-500 mb-1 block">Description *</label>
-            <textarea
-              onChange={(e) => setDescription(e.target.value)}
-              value={description}
+            <textarea onChange={(e) => setDescription(e.target.value)} value={description}
               className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm"
-              placeholder="Write content here"
-              rows={3}
-              required
-            />
+              placeholder="Write content here" rows={3} required />
           </div>
 
-          {/* Type + Price */}
+          {/* Type + Price + Stock */}
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-500 mb-1 block">Product Type</label>
-              <select
-                onChange={(e) => setSubCategory(e.target.value)}
-                value={subCategory}
-                className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm text-gray-700"
-              >
+              <select onChange={(e) => setSubCategory(e.target.value)} value={subCategory}
+                className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm text-gray-700">
                 <option value="Topwear">Topwear</option>
                 <option value="Bottomwear">Bottomwear</option>
                 <option value="Other">Other</option>
@@ -251,30 +229,17 @@ const Add = ({ token }) => {
             </div>
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-500 mb-1 block">Price (₹) *</label>
-              <input
-                onChange={(e) => setPrice(e.target.value)}
-                value={price}
+              <input onChange={(e) => setPrice(e.target.value)} value={price}
                 className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm"
-                type="number"
-                min="1"
-                step="any"
-                placeholder="250"
-                required
-              />
+                type="number" min="1" step="any" placeholder="250" required />
             </div>
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-500 mb-1 block">
                 Stock <span className="font-normal text-gray-400">(blank = unlimited)</span>
               </label>
-              <input
-                onChange={(e) => setStock(e.target.value)}
-                value={stock}
+              <input onChange={(e) => setStock(e.target.value)} value={stock}
                 className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="e.g. 50"
-              />
+                type="number" min="1" step="1" placeholder="e.g. 50" />
             </div>
           </div>
 
@@ -283,19 +248,12 @@ const Add = ({ token }) => {
             <label className="text-xs font-semibold text-gray-500 mb-2 block">Sizes</label>
             <div className="flex gap-2 flex-wrap">
               {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'FREE SIZE', '28', '30', '32', '34', '36', '38', '40'].map((size) => (
-                <div
-                  key={size}
-                  onClick={() =>
-                    setSizes((prev) =>
-                      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
-                    )
-                  }
-                  className={`px-3 py-1 rounded-lg border cursor-pointer text-xs font-medium transition select-none ${
-                    sizes.includes(size)
+                <div key={size}
+                  onClick={() => setSizes((prev) => prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size])}
+                  className={`px-3 py-1 rounded-lg border cursor-pointer text-xs font-medium transition select-none ${sizes.includes(size)
                       ? 'bg-green-100 border-green-400 text-green-800'
                       : 'bg-gray-100 border-gray-200 text-gray-600 hover:border-gray-400'
-                  }`}
-                >
+                    }`}>
                   {size}
                 </div>
               ))}
@@ -304,13 +262,8 @@ const Add = ({ token }) => {
 
           {/* Bestseller */}
           <div className="flex items-center gap-2">
-            <input
-              onChange={() => setBestseller((prev) => !prev)}
-              checked={bestseller}
-              type="checkbox"
-              id="bestseller"
-              className="accent-green-500"
-            />
+            <input onChange={() => setBestseller((prev) => !prev)} checked={bestseller}
+              type="checkbox" id="bestseller" className="accent-green-500" />
             <label className="cursor-pointer text-sm text-gray-700" htmlFor="bestseller">
               Add to bestseller
             </label>
@@ -318,18 +271,12 @@ const Add = ({ token }) => {
 
           {/* Buttons */}
           <div className="flex gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-black text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 hover:bg-gray-800 transition"
-            >
+            <button type="submit" disabled={loading}
+              className="flex-1 bg-black text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 hover:bg-gray-800 transition">
               {loading ? 'Saving…' : editingId ? 'Update Product' : 'Add Product'}
             </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-6 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm hover:bg-gray-200 transition"
-            >
+            <button type="button" onClick={resetForm}
+              className="px-6 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm hover:bg-gray-200 transition">
               Clear
             </button>
           </div>
@@ -348,9 +295,7 @@ const Add = ({ token }) => {
         </h3>
 
         {fetching ? (
-          <div className="text-gray-400 text-sm py-8 text-center border border-dashed border-gray-200 rounded-xl">
-            Loading…
-          </div>
+          <div className="text-gray-400 text-sm py-8 text-center border border-dashed border-gray-200 rounded-xl">Loading…</div>
         ) : products.length === 0 ? (
           <div className="text-gray-400 text-sm py-8 text-center border border-dashed border-gray-200 rounded-xl">
             No products yet — add one above.
@@ -358,29 +303,20 @@ const Add = ({ token }) => {
         ) : (
           <div className="flex flex-col gap-3">
             {products.map((product) => {
-              const allImages = [product.image1, product.image2, product.image3, product.image4]
-                .filter(Boolean);
-              // Also support array-style images field
-              const thumbs = allImages.length
-                ? allImages
-                : Array.isArray(product.images) ? product.images : [];
-
+              // Backend stores images in product.image (array)
+              const thumbs = Array.isArray(product.image) ? product.image : [];
               return (
-                <div
-                  key={product._id || product.id}
-                  className="border border-gray-200 rounded-xl p-4 flex items-center gap-4 transition hover:border-gray-300"
-                >
-                  {/* Up to 3 thumbnails stacked */}
+                <div key={product._id}
+                  className="border border-gray-200 rounded-xl p-4 flex items-center gap-4 transition hover:border-gray-300">
+
+                  {/* Stacked thumbnails */}
                   <div className="relative flex-shrink-0" style={{ width: '52px', height: '44px' }}>
                     {thumbs.length === 0 ? (
                       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xl">📷</div>
                     ) : (
                       thumbs.slice(0, 3).map((url, i) => (
-                        <div
-                          key={i}
-                          className="absolute rounded overflow-hidden border border-gray-200"
-                          style={{ width: 36, height: 36, left: `${i * 10}px`, top: `${i * 2}px`, zIndex: i }}
-                        >
+                        <div key={i} className="absolute rounded overflow-hidden border border-gray-200"
+                          style={{ width: 36, height: 36, left: `${i * 10}px`, top: `${i * 2}px`, zIndex: i }}>
                           <img src={url} alt="" className="w-full h-full object-cover" />
                         </div>
                       ))
@@ -392,9 +328,7 @@ const Add = ({ token }) => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-sm text-gray-800 truncate">{product.name}</p>
                       {product.bestseller && (
-                        <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          Bestseller
-                        </span>
+                        <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Bestseller</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5 truncate">{product.description}</p>
@@ -404,7 +338,7 @@ const Add = ({ token }) => {
                       {product.sizes?.length > 0 && (
                         <span className="text-gray-400">{product.sizes.join(', ')}</span>
                       )}
-                      {product.stock !== undefined && product.stock !== null && (
+                      {product.stock !== null && product.stock !== undefined && (
                         <span className="text-gray-400">Stock: {product.stock}</span>
                       )}
                       {thumbs.length > 0 && (
@@ -415,23 +349,17 @@ const Add = ({ token }) => {
 
                   {/* Actions */}
                   <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => toggleBestseller(product)}
+                    <button onClick={() => toggleBestseller(product)}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-500 hover:border-yellow-400 hover:text-yellow-600 transition"
-                      title={product.bestseller ? 'Remove from bestseller' : 'Mark as bestseller'}
-                    >
+                      title={product.bestseller ? 'Remove from bestseller' : 'Mark as bestseller'}>
                       {product.bestseller ? '⭐ Best' : '☆ Best'}
                     </button>
-                    <button
-                      onClick={() => startEdit(product)}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition"
-                    >
+                    <button onClick={() => startEdit(product)}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition">
                       Edit
                     </button>
-                    <button
-                      onClick={() => deleteProduct(product._id || product.id)}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-400 hover:border-red-400 hover:text-red-500 transition"
-                    >
+                    <button onClick={() => deleteProduct(product._id)}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-400 hover:border-red-400 hover:text-red-500 transition">
                       Delete
                     </button>
                   </div>
