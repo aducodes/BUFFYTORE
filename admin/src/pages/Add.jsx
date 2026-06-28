@@ -166,7 +166,7 @@ const Add = ({ token }) => {
       <div>
         <p className="mb-2">Product Sizes</p>
         <div className="flex gap-3 flex-wrap">
-          {["S", "M", "L", "XL", "XXL"].map((size) => (
+          {["XS","S", "M", "L", "XL", "XXL", "3XL" , "FREE SIZE" , "28" , "30" , "32" , "34" , "36" , "38" , "40" ].map((size) => (
             <div
               key={size}
               onClick={() =>
