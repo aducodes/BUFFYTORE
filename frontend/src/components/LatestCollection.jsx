@@ -17,7 +17,7 @@ const LatestCollection = () => {
       <div className='text-center py-8 text-3xl'>
         <Title text1={'LATEST'} text2={'COLLECTION'} />
         <p className='w-3/4 m-auto text-xs sm:text-sm md:text-base text-white'>
-        Lorem ipsum is simple dummy text of the printing ad typesetting industry.Lorem ipsum hase been the.
+        Latest collection of our products, you can find the latest products in our store. We have a wide range of products for you to choose from.
         </p>
       </div>
 
