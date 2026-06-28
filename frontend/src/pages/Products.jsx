@@ -27,23 +27,33 @@ const Product = () => {
     fetchProductData();
   }, [productsId, products]);
 
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [productsId]);
+
   return productData ? (
     <div className='border-t-2 border-white pt-10 transition-opacity ease-in duration-500 opacity-100'>
       {/* ------------ Product Data -------------- */}
       <div className='flex gap-12 sm:gap-12 flex-col sm:flex-row'>
+
         {/* ----------- Product Images ------------- */}
         <div className='flex-1 flex flex-col-reverse gap-3 sm:flex-row'>
-          <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll justify-between sm:justify-normal sm:w-[18.7%] w-full'>
+
+          {/* Thumbnails */}
+          <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll sm:justify-normal sm:w-[18.7%] w-full gap-2'>
             {productData.image.map((item, index) => (
               <img
                 onClick={() => setImage(item)}
                 src={item}
                 key={index}
-                className='w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer'
+                className='w-16 h-16 sm:w-full sm:h-auto sm:mb-3 flex-shrink-0 cursor-pointer object-cover rounded'
                 alt=''
               />
             ))}
           </div>
+
+          {/* Main image */}
           <div className='w-full sm:w-[80%]'>
             <img className='w-full h-auto' src={image} alt='' />
           </div>
@@ -61,8 +71,7 @@ const Product = () => {
             <p className='pl-2 text-white'>(122)</p>
           </div>
           <p className='mt-5 text-3xl font-medium text-white'>
-            {currency}
-            {productData.price}
+            {currency}{productData.price}
           </p>
           <p className='mt-5 text-gray-500 md:w-4/5 text-white'>{productData.description}</p>
 
@@ -74,9 +83,9 @@ const Product = () => {
                   key={index}
                   onClick={() => setSize(size === item ? null : item)}
                   className={`border py-2 px-4 ${item === size
-                      ? "bg-green-500 border-white"
-                      : "bg-green-100"
-                    }`}
+                    ? 'bg-green-500 border-white'
+                    : 'bg-green-100'
+                  }`}
                 >
                   {item}
                 </button>
