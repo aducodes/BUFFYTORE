@@ -41,6 +41,8 @@ const placeOrderRazorpay = async (req, res) => {
       razorpay_signature,
       orderType, // 'regular' or 'combo'
       comboDetails, // combo-specific info
+      courier, // sent as "courier" from PlaceOrder.jsx
+      courierService, // sent as "courierService" from ComboOffers.jsx
     } = req.body;
 
     // Verify payment signature
@@ -69,6 +71,8 @@ const placeOrderRazorpay = async (req, res) => {
       razorpay_payment_id,
       orderType: orderType || "regular",
       comboDetails: comboDetails || null,
+      // Accept either field name so both PlaceOrder and ComboOffers flows work
+      courier: courier || courierService || null,
     });
 
     await newOrder.save();

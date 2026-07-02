@@ -15,6 +15,7 @@ const orderSchema = new mongoose.Schema({
   razorpay_payment_id: { type: String },
   orderType: { type: String, default: 'regular' }, // 'regular' or 'combo'
   comboDetails: { type: Object, default: null },
+  courier: { type: String, default: null }, // Kerala delivery courier option (india_post, dtdc, speed, safe)
 });
 
 const orderModel = mongoose.models.order || mongoose.model('order', orderSchema);

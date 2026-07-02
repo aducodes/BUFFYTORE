@@ -12,6 +12,13 @@ const statusColors = {
   'Delivered': 'bg-green-100 text-green-700',
 };
 
+const courierLabels = {
+  india_post: 'India Post',
+  dtdc: 'DTDC',
+  speed: 'Speed',
+  safe: 'Safe',
+};
+
 const Orders = ({ token }) => {
   const [orders, setOrders] = useState([])
   const [filter, setFilter] = useState('all') // 'all' | 'regular' | 'combo'
@@ -115,6 +122,13 @@ const Orders = ({ token }) => {
                   <p>{order.address.street}</p>
                   <p>{order.address.city}, {order.address.state} — {order.address.pincode}</p>
                   <p className='font-medium'>{order.address.phone}</p>
+                  {order.courier && (
+                    <p className='mt-1'>
+                      <span className='inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide'>
+                        🚚 {courierLabels[order.courier] || order.courier}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
 
